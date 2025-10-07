@@ -25,7 +25,7 @@ BEGIN
 
         -- Default password: Admin123! (MUST BE CHANGED)
         -- This is the bcrypt hash for 'Admin123!' with salt rounds 12
-        password_hash := '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyVpLzrBPZu6';
+        password_hash := '$2a$12$ZvjaUBk3pEHOXt00CmYSouE0g.QZkYjPwGFMpLVH3zBk6YbPb19Uy';
 
         -- Insert the admin user
         INSERT INTO users (email, password_hash, first_name, last_name, role, created_at, updated_at)
