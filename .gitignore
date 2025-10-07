@@ -13,8 +13,8 @@ dist/
 *.log
 npm-debug.log*
 
-# Uploads
-uploads/
+# Uploads (user uploaded files, not source code)
+/uploads/
 
 # OS files
 .DS_Store

@@ -26,10 +26,14 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(helmet());
+
+// CORS configuration
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? (process.env.ALLOWED_ORIGINS?.split(',') || [])
+  : ['http://localhost:3000', 'http://localhost:3003', 'http://localhost:19006']; // Admin web ports + Expo dev
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-admin-domain.com'] 
-    : ['http://localhost:3000', 'http://localhost:3003', 'http://localhost:19006'], // Admin web ports + Expo dev
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(morgan('combined'));
