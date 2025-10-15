@@ -1,4 +1,5 @@
 import { query } from '../../config/db';
+import { fileStorageService } from '../../services/FileStorageService';
 
 export interface Note {
   id: number;
@@ -37,6 +38,44 @@ export interface UpdateNoteData {
   attachments?: any[];
 }
 
+/**
+ * Transform attachment URLs in a single note from file paths to signed URLs
+ */
+async function transformNoteAttachments(note: Note): Promise<Note> {
+  if (!note || !note.attachments || note.attachments.length === 0) {
+    return note;
+  }
+
+  const transformedAttachments = await Promise.all(
+    note.attachments.map(async (attachment: any) => {
+      if (attachment && attachment.url) {
+        const signedUrl = await fileStorageService.getSignedUrlFromPathOrUrl(attachment.url);
+        return {
+          ...attachment,
+          url: signedUrl
+        };
+      }
+      return attachment;
+    })
+  );
+
+  return {
+    ...note,
+    attachments: transformedAttachments
+  };
+}
+
+/**
+ * Transform attachment URLs in an array of notes from file paths to signed URLs
+ */
+async function transformNotesAttachments(notes: Note[]): Promise<Note[]> {
+  if (!notes || notes.length === 0) {
+    return notes;
+  }
+
+  return Promise.all(notes.map(note => transformNoteAttachments(note)));
+}
+
 export const createNote = async (noteData: CreateNoteData): Promise<Note> => {
   const {
     user_id,
@@ -72,7 +111,7 @@ export const createNote = async (noteData: CreateNoteData): Promise<Note> => {
     RETURNING id, user_id, activity_id, title, content, is_private, tags, attachments, question_id, created_at, updated_at
   `, [user_id, activity_id, title || null, content, is_private, tags, JSON.stringify(attachments), question_id || null]);
 
-  return result.rows[0];
+  return transformNoteAttachments(result.rows[0]);
 };
 
 export const getNotesByActivity = async (activityId: number, userId?: number): Promise<Note[]> => {
@@ -102,10 +141,10 @@ export const getNotesByActivity = async (activityId: number, userId?: number): P
   }
   
   queryText += ` ORDER BY n.created_at DESC`;
-  
+
   const result = await query(queryText, params);
-  
-  return result.rows;
+
+  return transformNotesAttachments(result.rows);
 };
 
 export const getNotesByUser = async (userId: number): Promise<Note[]> => {
@@ -123,8 +162,8 @@ export const getNotesByUser = async (userId: number): Promise<Note[]> => {
     WHERE n.user_id = $1
     ORDER BY n.created_at DESC
   `, [userId]);
-  
-  return result.rows;
+
+  return transformNotesAttachments(result.rows);
 };
 
 export const getNoteById = async (id: number, userId?: number): Promise<Note | null> => {
@@ -153,16 +192,17 @@ export const getNoteById = async (id: number, userId?: number): Promise<Note | n
   }
   
   const result = await query(queryText, params);
-  
-  return result.rows[0] || null;
+
+  const note = result.rows[0] || null;
+  return note ? transformNoteAttachments(note) : null;
 };
 
 export const updateNote = async (id: number, updateData: UpdateNoteData, userId: number): Promise<Note | null> => {
   const { title, content, is_private, tags, attachments } = updateData;
   
   const result = await query(`
-    UPDATE notes 
-    SET 
+    UPDATE notes
+    SET
       title = COALESCE($2, title),
       content = COALESCE($3, content),
       is_private = COALESCE($4, is_private),
@@ -172,16 +212,17 @@ export const updateNote = async (id: number, updateData: UpdateNoteData, userId:
     WHERE id = $1 AND user_id = $7
     RETURNING id, user_id, activity_id, title, content, is_private, tags, attachments, question_id, created_at, updated_at
   `, [
-    id, 
-    title, 
-    content, 
-    is_private, 
-    tags, 
-    attachments ? JSON.stringify(attachments) : null, 
+    id,
+    title,
+    content,
+    is_private,
+    tags,
+    attachments ? JSON.stringify(attachments) : null,
     userId
   ]);
-  
-  return result.rows[0] || null;
+
+  const note = result.rows[0] || null;
+  return note ? transformNoteAttachments(note) : null;
 };
 
 export const deleteNote = async (id: number, userId: number): Promise<boolean> => {
@@ -215,8 +256,8 @@ export const getNotesByTour = async (tourId: number, userId?: number): Promise<N
   }
   
   queryText += ` ORDER BY a.start_time ASC, n.created_at DESC`;
-  
+
   const result = await query(queryText, params);
-  
-  return result.rows;
+
+  return transformNotesAttachments(result.rows);
 };
