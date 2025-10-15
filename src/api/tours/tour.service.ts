@@ -1,4 +1,5 @@
 import { query } from '../../config/db';
+import { fileStorageService } from '../../services/FileStorageService';
 
 export type TourStatus = 'Draft' | 'Pending' | 'Completed';
 
@@ -57,8 +58,9 @@ export const getAllTours = async (): Promise<Tour[]> => {
     ORDER BY start_date DESC
   `);
 
-  return result.rows;
-};
+  // Transform theme_logo_url fields from paths to fresh signed URLs
+  return await fileStorageService.transformUrlFieldsInArray(result.rows, ['theme_logo_url']);
+};;
 
 export const getTourById = async (id: number): Promise<Tour | null> => {
   const result = await query(`
@@ -67,8 +69,12 @@ export const getTourById = async (id: number): Promise<Tour | null> => {
     WHERE id = $1
   `, [id]);
 
-  return result.rows[0] || null;
-};
+  const tour = result.rows[0] || null;
+  if (!tour) return null;
+
+  // Transform theme_logo_url field from path to fresh signed URL
+  return await fileStorageService.transformUrlFields(tour, ['theme_logo_url']);
+};;
 
 export const updateTour = async (id: number, updateData: UpdateTourData): Promise<Tour | null> => {
   const { name, description, start_date, end_date, status, survey_url, theme_primary_color, theme_logo_url } = updateData;

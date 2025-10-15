@@ -62,8 +62,8 @@ export const createActivity = async (activityData: CreateActivityData): Promise<
 
 export const getActivitiesByTour = async (tourId: number): Promise<Activity[]> => {
   const result = await query(`
-    SELECT 
-      a.id, a.tour_id, a.company_id, a.type, a.title, a.description, 
+    SELECT
+      a.id, a.tour_id, a.company_id, a.type, a.title, a.description,
       a.start_time, a.end_time, a.location_details, a.survey_url, a.image_url, a.created_at, a.updated_at,
       c.name as company_name,
       COALESCE(AVG(ar.rating), 0)::numeric(3,2) as average_rating,
@@ -75,18 +75,21 @@ export const getActivitiesByTour = async (tourId: number): Promise<Activity[]> =
     GROUP BY a.id, c.name
     ORDER BY a.start_time ASC
   `, [tourId]);
-  
-  return result.rows.map(row => ({
+
+  const activities = result.rows.map(row => ({
     ...row,
     average_rating: parseFloat(row.average_rating) || 0,
     total_reviews: row.total_reviews || 0
   }));
-};;
+
+  // Transform image_url fields from paths to fresh signed URLs
+  return await fileStorageService.transformUrlFieldsInArray(activities, ['image_url']);
+};
 
 export const getActivityById = async (id: number): Promise<Activity | null> => {
   const result = await query(`
-    SELECT 
-      a.id, a.tour_id, a.company_id, a.type, a.title, a.description, 
+    SELECT
+      a.id, a.tour_id, a.company_id, a.type, a.title, a.description,
       a.start_time, a.end_time, a.location_details, a.survey_url, a.image_url, a.created_at, a.updated_at,
       c.name as company_name,
       COALESCE(AVG(ar.rating), 0)::numeric(3,2) as average_rating,
@@ -97,16 +100,19 @@ export const getActivityById = async (id: number): Promise<Activity | null> => {
     WHERE a.id = $1
     GROUP BY a.id, c.name
   `, [id]);
-  
+
   const activity = result.rows[0];
   if (!activity) return null;
-  
-  return {
+
+  const processedActivity = {
     ...activity,
     average_rating: parseFloat(activity.average_rating) || 0,
     total_reviews: activity.total_reviews || 0
   };
-};;
+
+  // Transform image_url field from path to fresh signed URL
+  return await fileStorageService.transformUrlFields(processedActivity, ['image_url']);
+};
 
 export const updateActivity = async (id: number, updateData: UpdateActivityData): Promise<Activity | null> => {
   const { company_id, type, title, description, start_time, end_time, location_details, survey_url, image_url } = updateData;
@@ -178,7 +184,8 @@ export const getCurrentActivity = async (userId: string): Promise<Activity | nul
   `, [userId]);
 
   if (result.rows.length > 0) {
-    return result.rows[0];
+    // Transform image_url field from path to fresh signed URL
+    return await fileStorageService.transformUrlFields(result.rows[0], ['image_url']);
   }
 
   return null;

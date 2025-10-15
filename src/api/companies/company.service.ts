@@ -48,8 +48,9 @@ export const getAllCompanies = async (): Promise<Company[]> => {
     ORDER BY name ASC
   `);
   
-  return result.rows;
-};
+  // Transform image_url fields from paths to fresh signed URLs
+  return await fileStorageService.transformUrlFieldsInArray(result.rows, ['image_url']);
+};;
 
 export const getCompanyById = async (id: number): Promise<Company | null> => {
   const result = await query(`
@@ -58,8 +59,12 @@ export const getCompanyById = async (id: number): Promise<Company | null> => {
     WHERE id = $1
   `, [id]);
   
-  return result.rows[0] || null;
-};
+  const company = result.rows[0] || null;
+  if (!company) return null;
+  
+  // Transform image_url field from path to fresh signed URL
+  return await fileStorageService.transformUrlFields(company, ['image_url']);
+};;
 
 export const updateCompany = async (id: number, updateData: UpdateCompanyData): Promise<Company | null> => {
   const { name, address, website, description, image_url } = updateData;

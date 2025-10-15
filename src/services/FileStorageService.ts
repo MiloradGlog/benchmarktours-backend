@@ -72,14 +72,10 @@ export class FileStorageService {
 
     // Don't call makePublic() - bucket should have uniform access configured
 
-    // Generate a signed URL that expires in 7 days
-    const [signedUrl] = await file.getSignedUrl({
-      action: 'read',
-      expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-
+    // Return the file path instead of signed URL
+    // Signed URLs will be generated on-demand when data is fetched
     return {
-      url: signedUrl,
+      url: filepath, // Store file path, not signed URL
       filename: filepath,
       size: processedBuffer.length,
     };
@@ -162,6 +158,80 @@ export class FileStorageService {
       expires: Date.now() + expiresIn * 1000,
     });
     return url;
+  }
+
+  /**
+   * Converts a file path or existing signed URL to a fresh signed URL
+   * Handles backward compatibility with existing signed URLs in database
+   * @param pathOrUrl - File path (e.g., "companies/company_1.jpg") or existing URL
+   * @param expiresIn - Expiration time in seconds (default: 7 days)
+   */
+  async getSignedUrlFromPathOrUrl(pathOrUrl: string | null | undefined, expiresIn: number = 7 * 24 * 60 * 60): Promise<string | null> {
+    if (!pathOrUrl) return null;
+
+    // If it's already a URL (starts with http), check if it's expired
+    if (pathOrUrl.startsWith('http')) {
+      try {
+        const url = new URL(pathOrUrl);
+        
+        // Check if it's a signed URL with expiration
+        const expiresParam = url.searchParams.get('Expires') || url.searchParams.get('X-Goog-Expires');
+        
+        if (expiresParam) {
+          // It's a signed URL - extract the path and generate a fresh one
+          const filepath = this.extractFilePathFromUrl(pathOrUrl);
+          if (filepath) {
+            return await this.generateSignedUrl(filepath, expiresIn);
+          }
+        }
+        
+        // If no expiration param, it might be a public URL - return as is
+        return pathOrUrl;
+      } catch (error) {
+        console.error('Error parsing URL:', error);
+        return null;
+      }
+    }
+
+    // It's a file path - generate signed URL
+    try {
+      return await this.generateSignedUrl(pathOrUrl, expiresIn);
+    } catch (error) {
+      console.error(`Error generating signed URL for path: ${pathOrUrl}`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Transform an object by converting all file path fields to signed URLs
+   * @param obj - Object containing potential file path fields
+   * @param fields - Array of field names that contain file paths (e.g., ['image_url', 'logo_url'])
+   */
+  async transformUrlFields<T extends Record<string, any>>(obj: T, fields: string[]): Promise<T> {
+    if (!obj) return obj;
+
+    const transformed = { ...obj };
+    
+    for (const field of fields) {
+      if (transformed[field]) {
+        transformed[field] = await this.getSignedUrlFromPathOrUrl(transformed[field]);
+      }
+    }
+
+    return transformed;
+  }
+
+  /**
+   * Transform an array of objects by converting file path fields to signed URLs
+   * @param array - Array of objects
+   * @param fields - Array of field names that contain file paths
+   */
+  async transformUrlFieldsInArray<T extends Record<string, any>>(array: T[], fields: string[]): Promise<T[]> {
+    if (!array || array.length === 0) return array;
+
+    return Promise.all(
+      array.map(item => this.transformUrlFields(item, fields))
+    );
   }
 
   private async processImage(buffer: Buffer, options: { width?: number; height?: number; quality?: number }): Promise<Buffer> {

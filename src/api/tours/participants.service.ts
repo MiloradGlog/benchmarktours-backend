@@ -1,4 +1,5 @@
 import { query } from '../../config/db';
+import { fileStorageService } from '../../services/FileStorageService';
 
 export interface TourParticipant {
   id: number;
@@ -153,5 +154,6 @@ export const getUserTourActivities = async (userId: string, tourId: number): Pro
     ORDER BY a.start_time ASC
   `, [tourId]);
   
-  return result.rows;
-};
+  // Transform image_url fields from paths to fresh signed URLs
+  return await fileStorageService.transformUrlFieldsInArray(result.rows, ['image_url']);
+};;

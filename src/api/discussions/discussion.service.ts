@@ -210,15 +210,21 @@ export const getMessagesByDiscussion = async (discussionId: number, userId: numb
   const messageIds = result.rows.map(m => m.id);
   const reactions = await getMessageReactions(messageIds, userId);
   
+  // Transform URLs in messages
+  const messagesWithUrls = await fileStorageService.transformUrlFieldsInArray(
+    result.rows, 
+    ['image_url', 'voice_recording_url']
+  );
+  
   // Attach reactions to messages
-  const messages = result.rows.map(message => ({
+  const messages = messagesWithUrls.map(message => ({
     ...message,
     reactions: reactions.filter(r => r.message_id === message.id)
   }));
   
   // Build tree structure
   return buildMessageTree(messages);
-};
+};;
 
 export const updateMessage = async (
   id: number, 
@@ -459,8 +465,9 @@ export const getActivityMessages = async (activityId: number): Promise<Discussio
     ORDER BY dm.created_at ASC
   `, [discussionId]);
   
-  return result.rows;
-};
+  // Transform image_url and voice_recording_url fields from paths to fresh signed URLs
+  return await fileStorageService.transformUrlFieldsInArray(result.rows, ['image_url', 'voice_recording_url']);
+};;
 
 // Helper function to build message tree
 function buildMessageTree(messages: any[]): any[] {
