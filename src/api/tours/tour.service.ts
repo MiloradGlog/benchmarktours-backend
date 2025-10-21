@@ -162,3 +162,74 @@ export const getUserTourStats = async (tourId: number, userId: string): Promise<
 
   return result.rows[0];
 };
+
+
+export interface RecentActivity {
+  id: number;
+  type: 'note' | 'question';
+  user_id: string;
+  user_name: string;
+  content: string;
+  activity_title: string;
+  created_at: Date;
+  is_own: boolean;
+}
+
+export const getRecentTourActivity = async (tourId: number, userId: string): Promise<RecentActivity[]> => {
+  const result = await query(`
+    SELECT * FROM (
+      -- User's notes
+      SELECT 
+        n.id,
+        'note' as type,
+        n.user_id,
+        u.first_name || ' ' || u.last_name as user_name,
+        n.content,
+        a.title as activity_title,
+        n.created_at,
+        true as is_own
+      FROM notes n
+      JOIN activities a ON n.activity_id = a.id
+      JOIN users u ON n.user_id = u.id
+      WHERE a.tour_id = $1 AND n.user_id = $2
+      
+      UNION ALL
+      
+      -- User's questions
+      SELECT 
+        aq.id,
+        'question' as type,
+        aq.user_id,
+        u.first_name || ' ' || u.last_name as user_name,
+        aq.question_text as content,
+        a.title as activity_title,
+        aq.created_at,
+        true as is_own
+      FROM activity_questions aq
+      JOIN activities a ON aq.activity_id = a.id
+      JOIN users u ON aq.user_id = u.id
+      WHERE a.tour_id = $1 AND aq.user_id = $2
+      
+      UNION ALL
+      
+      -- Other users' public notes
+      SELECT 
+        n.id,
+        'note' as type,
+        n.user_id,
+        u.first_name || ' ' || u.last_name as user_name,
+        n.content,
+        a.title as activity_title,
+        n.created_at,
+        false as is_own
+      FROM notes n
+      JOIN activities a ON n.activity_id = a.id
+      JOIN users u ON n.user_id = u.id
+      WHERE a.tour_id = $1 AND n.user_id != $2 AND n.is_private = false
+    ) combined_activity
+    ORDER BY created_at DESC
+    LIMIT 3
+  `, [tourId, userId]);
+
+  return result.rows;
+};
