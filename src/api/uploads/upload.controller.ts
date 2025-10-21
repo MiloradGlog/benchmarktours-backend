@@ -198,3 +198,33 @@ export const uploadNoteAudioController = async (req: Request, res: Response): Pr
     res.status(500).json({ error: 'Failed to upload audio' });
   }
 };
+
+export const uploadNoteImageController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+
+    // For note images, we'll create a temporary noteId or allow frontend to specify
+    const tempNoteId = Date.now(); // Temporary ID for file naming
+
+    // Upload file to GCP
+    const uploadResult = await fileStorageService.uploadNoteImage(
+      tempNoteId,
+      req.file.buffer,
+      req.file.originalname
+    );
+
+    res.json({
+      message: 'Note image uploaded successfully',
+      imageUrl: uploadResult.url,
+      filename: uploadResult.filename,
+      size: uploadResult.size
+    });
+
+  } catch (error) {
+    console.error('Error uploading note image:', error);
+    res.status(500).json({ error: 'Failed to upload image' });
+  }
+};

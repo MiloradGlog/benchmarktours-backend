@@ -9,7 +9,8 @@ import {
   updateTourController,
   updateTourStatusController,
   deleteTourController,
-  uploadTourLogoController
+  uploadTourLogoController,
+  getUserTourStatsController
 } from './tour.controller';
 import activityRoutes from '../activities/activity.routes';
 import participantRoutes from './participants.routes';
@@ -101,6 +102,9 @@ router.put('/:id', authenticateToken, requireAdmin, updateTourValidation, update
 router.patch('/:id/status', authenticateToken, requireAdmin, updateTourStatusController);
 router.delete('/:id', authenticateToken, requireAdmin, deleteTourController);
 router.post('/:id/upload-logo', authenticateToken, requireAdmin, upload.single('logo'), uploadTourLogoController);
+
+// User-accessible routes
+router.get('/:id/stats', authenticateToken, getUserTourStatsController);
 
 // Nested routes - participants has its own auth control, activities need admin
 router.use('/:tourId/activities', authenticateToken, requireAdmin, activityRoutes);

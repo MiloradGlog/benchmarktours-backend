@@ -9,11 +9,11 @@ export interface ActivityQuestion {
   // Joined fields
   user_name?: string;
   activity_title?: string;
-  answer?: {
+  answers?: Array<{
     note_id: number;
     content: string;
     created_at: Date;
-  };
+  }>;
 }
 
 export interface CreateQuestionData {
@@ -44,15 +44,23 @@ const getQuestionsByActivity = async (
       aq.*,
       u.first_name || ' ' || u.last_name as user_name,
       a.title as activity_title,
-      n.id as answer_note_id,
-      n.content as answer_content,
-      n.created_at as answer_created_at
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'note_id', n.id,
+            'content', n.content,
+            'created_at', n.created_at
+          ) ORDER BY n.created_at ASC
+        ) FILTER (WHERE n.id IS NOT NULL),
+        '[]'
+      ) as answers
     FROM activity_questions aq
     LEFT JOIN users u ON aq.user_id = u.id
     LEFT JOIN activities a ON aq.activity_id = a.id
     LEFT JOIN notes n ON n.question_id = aq.id AND n.user_id = aq.user_id
     WHERE aq.activity_id = $1
     ${userId ? 'AND aq.user_id = $2' : ''}
+    GROUP BY aq.id, u.first_name, u.last_name, a.title
     ORDER BY aq.created_at DESC
   `;
 
@@ -67,11 +75,7 @@ const getQuestionsByActivity = async (
     created_at: row.created_at,
     user_name: row.user_name,
     activity_title: row.activity_title,
-    answer: row.answer_note_id ? {
-      note_id: row.answer_note_id,
-      content: row.answer_content,
-      created_at: row.answer_created_at
-    } : undefined
+    answers: row.answers || []
   }));
 };
 
@@ -91,7 +95,15 @@ const getQuestionById = async (questionId: number): Promise<ActivityQuestion | n
   return result.rows[0] || null;
 };
 
-const deleteQuestion = async (questionId: number, userId: string): Promise<boolean> => {
+const deleteQuestion = async (questionId: number, userId: string, deleteAnswers: boolean = false): Promise<boolean> => {
+  // If deleteAnswers is true, delete related notes first
+  if (deleteAnswers) {
+    await query(
+      'DELETE FROM notes WHERE question_id = $1 AND user_id = $2',
+      [questionId, userId]
+    );
+  }
+
   const sql = `
     DELETE FROM activity_questions
     WHERE id = $1 AND user_id = $2

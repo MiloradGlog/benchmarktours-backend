@@ -5,7 +5,7 @@ export const createNote = async (req: Request, res: Response) => {
   try {
     const { activityId } = req.params;
     const userId = req.user!.id;
-    const { title, content, is_private = false, tags = [], attachments = [] } = req.body;
+    const { title, content, is_private = false, tags = [], attachments = [], question_id } = req.body;
 
     if (!content || content.trim() === '') {
       return res.status(400).json({ error: 'Note content is required' });
@@ -18,7 +18,8 @@ export const createNote = async (req: Request, res: Response) => {
       content,
       is_private,
       tags,
-      attachments
+      attachments,
+      question_id
     };
 
     const note = await noteService.createNote(noteData);

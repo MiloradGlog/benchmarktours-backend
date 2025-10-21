@@ -129,3 +129,36 @@ export const deleteTour = async (id: number): Promise<boolean> => {
   const result = await query('DELETE FROM tours WHERE id = $1', [id]);
   return result.rowCount > 0;
 };
+
+
+export interface UserTourStats {
+  total_questions_asked: number;
+  total_questions_answered: number;
+  total_notes: number;
+}
+
+export const getUserTourStats = async (tourId: number, userId: string): Promise<UserTourStats> => {
+  const result = await query(`
+    SELECT
+      (
+        SELECT COUNT(*)
+        FROM activity_questions aq
+        JOIN activities a ON aq.activity_id = a.id
+        WHERE a.tour_id = $1 AND aq.user_id = $2
+      ) as total_questions_asked,
+      (
+        SELECT COUNT(*)
+        FROM notes n
+        JOIN activities a ON n.activity_id = a.id
+        WHERE a.tour_id = $1 AND n.user_id = $2 AND n.question_id IS NOT NULL
+      ) as total_questions_answered,
+      (
+        SELECT COUNT(*)
+        FROM notes n
+        JOIN activities a ON n.activity_id = a.id
+        WHERE a.tour_id = $1 AND n.user_id = $2
+      ) as total_notes
+  `, [tourId, userId]);
+
+  return result.rows[0];
+};

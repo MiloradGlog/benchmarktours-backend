@@ -142,18 +142,26 @@ export const getUserTourActivities = async (userId: string, tourId: number): Pro
     return null; // User not assigned to this tour
   }
   
-  // Get activities for the tour with company information
+  // Get activities for the tour with company information, note counts, and question counts
   const result = await query(`
-    SELECT 
-      a.id, a.tour_id, a.company_id, a.type, a.title, a.description, 
+    SELECT
+      a.id, a.tour_id, a.company_id, a.type, a.title, a.description,
       a.start_time, a.end_time, a.location_details, a.survey_url, a.image_url, a.created_at, a.updated_at,
-      c.name as company_name
+      c.name as company_name,
+      c.image_url as company_image_url,
+      CAST(COUNT(DISTINCT n.id) AS INTEGER) as note_count,
+      CAST(COUNT(DISTINCT aq.id) AS INTEGER) as question_count
     FROM activities a
     LEFT JOIN companies c ON a.company_id = c.id
-    WHERE a.tour_id = $1
+    LEFT JOIN notes n ON a.id = n.activity_id AND n.user_id = $1
+    LEFT JOIN activity_questions aq ON a.id = aq.activity_id
+    WHERE a.tour_id = $2
+    GROUP BY a.id, a.tour_id, a.company_id, a.type, a.title, a.description,
+             a.start_time, a.end_time, a.location_details, a.survey_url, a.image_url, 
+             a.created_at, a.updated_at, c.name, c.image_url
     ORDER BY a.start_time ASC
-  `, [tourId]);
-  
+  `, [userId, tourId]);
+
   // Transform image_url fields from paths to fresh signed URLs
-  return await fileStorageService.transformUrlFieldsInArray(result.rows, ['image_url']);
-};;
+  return await fileStorageService.transformUrlFieldsInArray(result.rows, ['image_url', 'company_image_url']);
+};;;

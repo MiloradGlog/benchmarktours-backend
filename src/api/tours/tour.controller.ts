@@ -7,6 +7,7 @@ import {
   updateTour,
   updateTourStatus,
   deleteTour,
+  getUserTourStats,
   CreateTourData,
   UpdateTourData,
   TourStatus
@@ -210,3 +211,26 @@ export const uploadTourLogoController = async (req: Request, res: Response): Pro
     res.status(500).json({ error: 'Internal server error' });
   }
 };;
+
+
+export const getUserTourStatsController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tourId = parseInt(req.params.id);
+    if (isNaN(tourId)) {
+      res.status(400).json({ error: 'Invalid tour ID' });
+      return;
+    }
+
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
+
+    const stats = await getUserTourStats(tourId, userId);
+    res.status(200).json({ stats });
+  } catch (error: any) {
+    console.error('Get user tour stats error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};

@@ -114,12 +114,13 @@ router.delete(
     try {
       const questionId = parseInt(req.params.questionId);
       const userId = req.user?.id;
+      const deleteAnswers = req.query.delete_answers === 'true';
 
       if (!userId) {
         return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      const deleted = await questionService.deleteQuestion(questionId, userId);
+      const deleted = await questionService.deleteQuestion(questionId, userId, deleteAnswers);
 
       if (!deleted) {
         return res.status(404).json({ error: 'Question not found or unauthorized' });

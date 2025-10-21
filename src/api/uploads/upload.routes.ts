@@ -5,7 +5,8 @@ import {
   uploadActivityImageController,
   uploadDiscussionImageController,
   uploadDiscussionVoiceController,
-  uploadNoteAudioController
+  uploadNoteAudioController,
+  uploadNoteImageController
 } from './upload.controller';
 import { authenticateToken } from '../../middleware/auth.middleware';
 
@@ -75,6 +76,13 @@ router.post('/note/audio',
   authenticateToken,
   upload.single('audio'),
   uploadNoteAudioController
+);
+
+// Note image upload
+router.post('/note/image',
+  authenticateToken,
+  upload.single('image'),
+  uploadNoteImageController
 );
 
 export default router;
