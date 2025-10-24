@@ -355,6 +355,21 @@ export class FileStorageService {
       filename,
     });
   }
+
+  async uploadNoteImage(noteId: number, buffer: Buffer, originalName: string): Promise<UploadResult> {
+    const ext = originalName.split('.').pop();
+    const filename = `note_image_${noteId}_${Date.now()}.${ext}`;
+    
+    return this.uploadFile(buffer, {
+      folder: 'notes',
+      filename,
+      resize: {
+        width: 1200,
+        height: 900,
+        quality: 80,
+      },
+    });
+  }
 }
 
 export const fileStorageService = new FileStorageService();

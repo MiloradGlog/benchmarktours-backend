@@ -170,6 +170,7 @@ export interface RecentActivity {
   user_id: string;
   user_name: string;
   content: string;
+  activity_id: number;
   activity_title: string;
   created_at: Date;
   is_own: boolean;
@@ -185,6 +186,7 @@ export const getRecentTourActivity = async (tourId: number, userId: string): Pro
         n.user_id,
         u.first_name || ' ' || u.last_name as user_name,
         n.content,
+        a.id as activity_id,
         a.title as activity_title,
         n.created_at,
         true as is_own
@@ -202,6 +204,7 @@ export const getRecentTourActivity = async (tourId: number, userId: string): Pro
         aq.user_id,
         u.first_name || ' ' || u.last_name as user_name,
         aq.question_text as content,
+        a.id as activity_id,
         a.title as activity_title,
         aq.created_at,
         true as is_own
@@ -219,6 +222,7 @@ export const getRecentTourActivity = async (tourId: number, userId: string): Pro
         n.user_id,
         u.first_name || ' ' || u.last_name as user_name,
         n.content,
+        a.id as activity_id,
         a.title as activity_title,
         n.created_at,
         false as is_own
