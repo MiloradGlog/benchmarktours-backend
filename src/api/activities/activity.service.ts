@@ -1,7 +1,7 @@
 import { query } from '../../config/db';
 import { fileStorageService } from '../../services/FileStorageService';
 
-export type ActivityType = 'CompanyVisit' | 'Hotel' | 'Restaurant' | 'Travel';
+export type ActivityType = 'CompanyVisit' | 'Hotel' | 'Restaurant' | 'Travel' | 'Discussion';
 
 export interface Activity {
   id: number;
@@ -16,6 +16,7 @@ export interface Activity {
   location_details?: string;
   survey_url?: string;
   image_url?: string;
+  linked_activity_id?: number; // For linking discussions to other activities
   created_at: Date;
   updated_at: Date;
   // Rating fields

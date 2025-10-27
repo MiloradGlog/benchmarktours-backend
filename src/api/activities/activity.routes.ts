@@ -14,8 +14,8 @@ const router = Router({ mergeParams: true }); // To access parent route params (
 // Validation middleware
 const createActivityValidation = [
   body('type')
-    .isIn(['CompanyVisit', 'Hotel', 'Restaurant', 'Travel'])
-    .withMessage('Type must be one of: CompanyVisit, Hotel, Restaurant, Travel'),
+    .isIn(['CompanyVisit', 'Hotel', 'Restaurant', 'Travel', 'Discussion'])
+    .withMessage('Type must be one of: CompanyVisit, Hotel, Restaurant, Travel, Discussion'),
   body('title')
     .trim()
     .isLength({ min: 2, max: 255 })
@@ -47,14 +47,18 @@ const createActivityValidation = [
     .optional()
     .trim()
     .isLength({ max: 500 })
-    .withMessage('Location details must be less than 500 characters')
+    .withMessage('Location details must be less than 500 characters'),
+  body('linked_activity_id')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Linked activity ID must be a positive integer')
 ];
 
 const updateActivityValidation = [
   body('type')
     .optional()
-    .isIn(['CompanyVisit', 'Hotel', 'Restaurant', 'Travel'])
-    .withMessage('Type must be one of: CompanyVisit, Hotel, Restaurant, Travel'),
+    .isIn(['CompanyVisit', 'Hotel', 'Restaurant', 'Travel', 'Discussion'])
+    .withMessage('Type must be one of: CompanyVisit, Hotel, Restaurant, Travel, Discussion'),
   body('title')
     .optional()
     .trim()
@@ -83,7 +87,11 @@ const updateActivityValidation = [
     .optional()
     .trim()
     .isLength({ max: 500 })
-    .withMessage('Location details must be less than 500 characters')
+    .withMessage('Location details must be less than 500 characters'),
+  body('linked_activity_id')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Linked activity ID must be a positive integer')
 ];
 
 // Apply authentication and admin middleware to all routes
