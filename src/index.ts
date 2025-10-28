@@ -20,6 +20,7 @@ import publicSurveyRoutes from './api/surveys/publicSurvey.routes';
 import questionRoutes from './api/questions/question.routes';
 import activityGeneralRoutes from './api/activities/activityGeneral.routes';
 import dashboardRoutes from './api/dashboard/dashboard.routes';
+import adminPasswordResetRoutes from './api/admin/passwordReset.routes';
 
 dotenv.config();
 
@@ -69,6 +70,7 @@ app.use('/api', surveyRoutes);
 app.use('/api', questionRoutes);
 app.use('/api', activityGeneralRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/admin', adminPasswordResetRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

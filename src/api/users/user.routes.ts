@@ -19,7 +19,7 @@ const router = Router();
 // Validation middleware
 const createUserValidation = [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('password').optional().isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('first_name').trim().isLength({ min: 1 }).withMessage('First name is required'),
   body('last_name').trim().isLength({ min: 1 }).withMessage('Last name is required'),
   body('role').isIn(['Admin', 'User', 'Guide']).withMessage('Role must be Admin, User, or Guide')
@@ -27,7 +27,7 @@ const createUserValidation = [
 
 const updateUserValidation = [
   body('email').optional().isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('password').optional().isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('password').optional().isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
   body('first_name').optional().trim().isLength({ min: 1 }).withMessage('First name cannot be empty'),
   body('last_name').optional().trim().isLength({ min: 1 }).withMessage('Last name cannot be empty'),
   body('role').optional().isIn(['Admin', 'User', 'Guide']).withMessage('Role must be Admin, User, or Guide')

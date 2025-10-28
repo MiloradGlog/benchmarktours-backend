@@ -67,26 +67,36 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
     const userData = {
       email,
-      password,
+      password, // Optional - if not provided, setup code will be generated
       first_name,
       last_name,
       role
     };
 
-    const user = await userService.createUser(userData);
+    const result = await userService.createUser(userData);
 
-    res.status(201).json({
+    const response: any = {
       success: true,
-      message: 'User created successfully',
+      message: result.setupCode
+        ? 'User created successfully. Setup code generated for first-time password setup.'
+        : 'User created successfully',
       user: {
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        role: user.role,
-        created_at: user.created_at
+        id: result.user.id,
+        email: result.user.email,
+        first_name: result.user.first_name,
+        last_name: result.user.last_name,
+        role: result.user.role,
+        created_at: result.user.created_at
       }
-    });
+    };
+
+    // Include setup code if generated (user created without password)
+    if (result.setupCode) {
+      response.setup_code = result.setupCode;
+      response.setup_instructions = 'Share this code with the user. They will use it along with their email to set their password on first login.';
+    }
+
+    res.status(201).json(response);
   } catch (error: any) {
     console.error('Create user error:', error);
 
