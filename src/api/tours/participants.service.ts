@@ -146,7 +146,7 @@ export const getUserTourActivities = async (userId: string, tourId: number): Pro
   const result = await query(`
     SELECT
       a.id, a.tour_id, a.company_id, a.type, a.title, a.description,
-      a.start_time, a.end_time, a.location_details, a.survey_url, a.image_url, a.created_at, a.updated_at,
+      a.start_time, a.end_time, a.location_details, a.survey_url, a.image_url, a.linked_activity_id, a.created_at, a.updated_at,
       c.name as company_name,
       c.image_url as company_image_url,
       CAST(COUNT(DISTINCT n.id) AS INTEGER) as note_count,
@@ -157,7 +157,7 @@ export const getUserTourActivities = async (userId: string, tourId: number): Pro
     LEFT JOIN activity_questions aq ON a.id = aq.activity_id
     WHERE a.tour_id = $2
     GROUP BY a.id, a.tour_id, a.company_id, a.type, a.title, a.description,
-             a.start_time, a.end_time, a.location_details, a.survey_url, a.image_url, 
+             a.start_time, a.end_time, a.location_details, a.survey_url, a.image_url, a.linked_activity_id,
              a.created_at, a.updated_at, c.name, c.image_url
     ORDER BY a.start_time ASC
   `, [userId, tourId]);
