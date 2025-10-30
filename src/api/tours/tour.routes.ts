@@ -54,7 +54,7 @@ const createTourValidation = [
     .optional()
     .trim()
     .matches(/^#[0-9A-F]{6}$/i)
-    .withMessage('Theme primary color must be a valid hex color (e.g., #2563eb)'),
+    .withMessage('Theme primary color must be a valid hex color (e.g., #497CED)'),
   body('theme_logo_url')
     .optional()
     .trim()
@@ -87,7 +87,7 @@ const updateTourValidation = [
     .optional()
     .trim()
     .matches(/^#[0-9A-F]{6}$/i)
-    .withMessage('Theme primary color must be a valid hex color (e.g., #2563eb)'),
+    .withMessage('Theme primary color must be a valid hex color (e.g., #497CED)'),
   body('theme_logo_url')
     .optional()
     .trim()
