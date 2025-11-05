@@ -73,6 +73,9 @@ export interface UpdateSurveyData {
   title?: string;
   description?: string;
   status?: SurveyStatus;
+  tour_id?: number | null;
+  activity_id?: number | null;
+  questions?: CreateQuestionData[];
 }
 
 export interface SurveyTemplate {
@@ -228,46 +231,109 @@ export const getAllSurveys = async (filters?: { type?: SurveyType; status?: Surv
 };
 
 export const updateSurvey = async (id: number, updateData: UpdateSurveyData): Promise<Survey | null> => {
-  const fields = [];
-  const values = [];
-  let paramCount = 1;
+  const client = await query('BEGIN');
   
-  if (updateData.title !== undefined) {
-    fields.push(`title = $${paramCount++}`);
-    values.push(updateData.title);
-  }
-  if (updateData.description !== undefined) {
-    fields.push(`description = $${paramCount++}`);
-    values.push(updateData.description);
-  }
-  if (updateData.status !== undefined) {
-    fields.push(`status = $${paramCount++}`);
-    values.push(updateData.status);
+  try {
+    // Update survey metadata
+    const fields = [];
+    const values = [];
+    let paramCount = 1;
     
-    // Set published_at when status changes to ACTIVE
-    if (updateData.status === 'ACTIVE') {
-      fields.push(`published_at = NOW()`);
-    } else if (updateData.status === 'ARCHIVED') {
-      fields.push(`archived_at = NOW()`);
+    if (updateData.title !== undefined) {
+      fields.push(`title = $${paramCount++}`);
+      values.push(updateData.title);
     }
+    if (updateData.description !== undefined) {
+      fields.push(`description = $${paramCount++}`);
+      values.push(updateData.description);
+    }
+    if (updateData.status !== undefined) {
+      fields.push(`status = $${paramCount++}`);
+      values.push(updateData.status);
+
+      // Set published_at when status changes to ACTIVE
+      if (updateData.status === 'ACTIVE') {
+        fields.push(`published_at = NOW()`);
+      } else if (updateData.status === 'ARCHIVED') {
+        fields.push(`archived_at = NOW()`);
+      }
+    }
+    if (updateData.tour_id !== undefined) {
+      fields.push(`tour_id = $${paramCount++}`);
+      values.push(updateData.tour_id);
+    }
+    if (updateData.activity_id !== undefined) {
+      fields.push(`activity_id = $${paramCount++}`);
+      values.push(updateData.activity_id);
+    }
+
+    if (fields.length > 0) {
+      values.push(id);
+      
+      await query(`
+        UPDATE surveys
+        SET ${fields.join(', ')}, updated_at = NOW()
+        WHERE id = $${paramCount}
+      `, values);
+    }
+
+    // Handle questions if provided
+    if (updateData.questions !== undefined) {
+      // Delete existing questions (cascade will delete options too)
+      await query('DELETE FROM survey_questions WHERE survey_id = $1', [id]);
+      
+      // Create new questions
+      if (updateData.questions.length > 0) {
+        for (const questionData of updateData.questions) {
+          const questionResult = await query(`
+            INSERT INTO survey_questions (survey_id, question_text, question_type, is_required, order_index, description, validation_rules)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id
+          `, [
+            id,
+            questionData.question_text,
+            questionData.question_type,
+            questionData.is_required,
+            questionData.order_index,
+            questionData.description || null,
+            questionData.validation_rules ? JSON.stringify(questionData.validation_rules) : null
+          ]);
+          
+          const questionId = questionResult.rows[0].id;
+          
+          // Create options for multiple choice/checkbox questions
+          if (questionData.options && questionData.options.length > 0) {
+            for (const optionData of questionData.options) {
+              await query(`
+                INSERT INTO survey_question_options (question_id, option_text, order_index, is_other)
+                VALUES ($1, $2, $3, $4)
+              `, [
+                questionId,
+                optionData.option_text,
+                optionData.order_index,
+                optionData.is_other || false
+              ]);
+            }
+          }
+        }
+      }
+    }
+    
+    // Get updated survey
+    const result = await query(`
+      SELECT id, title, description, type, status, tour_id, activity_id, 
+             created_by, created_at, updated_at, published_at, archived_at
+      FROM surveys
+      WHERE id = $1
+    `, [id]);
+    
+    await query('COMMIT');
+    return result.rows[0] || null;
+  } catch (error) {
+    await query('ROLLBACK');
+    throw error;
   }
-  
-  if (fields.length === 0) {
-    return null;
-  }
-  
-  values.push(id);
-  
-  const result = await query(`
-    UPDATE surveys
-    SET ${fields.join(', ')}, updated_at = NOW()
-    WHERE id = $${paramCount}
-    RETURNING id, title, description, type, status, tour_id, activity_id, 
-              created_by, created_at, updated_at, published_at, archived_at
-  `, values);
-  
-  return result.rows[0] || null;
-};
+};;
 
 export const deleteSurvey = async (id: number): Promise<boolean> => {
   const result = await query('DELETE FROM surveys WHERE id = $1', [id]);
@@ -428,16 +494,18 @@ export const getSurveysForTour = async (tourId: number): Promise<Survey[]> => {
     SELECT s.id, s.title, s.description, s.type, s.status, s.tour_id, s.activity_id, 
            s.created_by, s.created_at, s.updated_at, s.published_at, s.archived_at
     FROM surveys s
-    WHERE s.tour_id = $1 OR s.id IN (
-      SELECT application_survey_id FROM tours WHERE id = $1 AND application_survey_id IS NOT NULL
-      UNION
-      SELECT completion_survey_id FROM tours WHERE id = $1 AND completion_survey_id IS NOT NULL
+    WHERE s.status = 'ACTIVE' AND (
+      s.tour_id = $1 OR s.id IN (
+        SELECT application_survey_id FROM tours WHERE id = $1 AND application_survey_id IS NOT NULL
+        UNION
+        SELECT completion_survey_id FROM tours WHERE id = $1 AND completion_survey_id IS NOT NULL
+      )
     )
     ORDER BY s.created_at DESC
   `, [tourId]);
   
   return result.rows;
-};
+};;
 
 // Get surveys for a specific activity
 export const getSurveysForActivity = async (activityId: number): Promise<Survey[]> => {
@@ -445,14 +513,16 @@ export const getSurveysForActivity = async (activityId: number): Promise<Survey[
     SELECT s.id, s.title, s.description, s.type, s.status, s.tour_id, s.activity_id, 
            s.created_by, s.created_at, s.updated_at, s.published_at, s.archived_at
     FROM surveys s
-    WHERE s.activity_id = $1 OR s.id IN (
-      SELECT feedback_survey_id FROM activities WHERE id = $1 AND feedback_survey_id IS NOT NULL
+    WHERE s.status = 'ACTIVE' AND (
+      s.activity_id = $1 OR s.id IN (
+        SELECT feedback_survey_id FROM activities WHERE id = $1 AND feedback_survey_id IS NOT NULL
+      )
     )
     ORDER BY s.created_at DESC
   `, [activityId]);
   
   return result.rows;
-};
+};;
 
 // Duplicate a survey with a new title
 export const duplicateSurvey = async (surveyId: number, newTitle: string, createdBy: string): Promise<Survey | null> => {

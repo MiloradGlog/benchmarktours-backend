@@ -63,6 +63,31 @@ export const createActivity = async (activityData: CreateActivityData): Promise<
   return result.rows[0];
 };
 
+export const getAllActivities = async (): Promise<Activity[]> => {
+  const result = await query(`
+    SELECT
+      a.id, a.tour_id, a.company_id, a.type, a.title, a.description,
+      a.start_time, a.end_time, a.location_details, a.survey_url, a.image_url, a.linked_activity_id, a.created_at, a.updated_at,
+      c.name as company_name,
+      COALESCE(AVG(ar.rating), 0)::numeric(3,2) as average_rating,
+      COUNT(ar.id)::integer as total_reviews
+    FROM activities a
+    LEFT JOIN companies c ON a.company_id = c.id
+    LEFT JOIN activity_reviews ar ON a.id = ar.activity_id
+    GROUP BY a.id, c.name
+    ORDER BY a.start_time DESC
+  `);
+
+  const activities = result.rows.map(row => ({
+    ...row,
+    average_rating: parseFloat(row.average_rating) || 0,
+    total_reviews: row.total_reviews || 0
+  }));
+
+  // Transform image_url fields from paths to fresh signed URLs
+  return await fileStorageService.transformUrlFieldsInArray(activities, ['image_url']);
+};
+
 export const getActivitiesByTour = async (tourId: number): Promise<Activity[]> => {
   const result = await query(`
     SELECT

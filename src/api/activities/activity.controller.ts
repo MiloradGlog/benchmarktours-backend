@@ -3,6 +3,7 @@ import { validationResult } from 'express-validator';
 import {
   createActivity,
   getActivitiesByTour,
+  getAllActivities,
   getActivityById,
   updateActivity,
   deleteActivity,
@@ -143,6 +144,16 @@ export const deleteActivityController = async (req: Request, res: Response): Pro
   }
 };
 
+export const getAllActivitiesController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const activities = await getAllActivities();
+    res.json({ activities });
+  } catch (error: any) {
+    console.error('Get all activities error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export const getCurrentActivityController = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id;
@@ -154,9 +165,9 @@ export const getCurrentActivityController = async (req: Request, res: Response):
     const currentActivity = await getCurrentActivity(userId);
 
     if (!currentActivity) {
-      res.status(404).json({ 
+      res.status(404).json({
         message: 'No activity currently in progress',
-        current_activity: null 
+        current_activity: null
       });
       return;
     }
