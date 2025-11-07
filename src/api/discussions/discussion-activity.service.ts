@@ -220,7 +220,29 @@ export const getNotesByTeam = async (teamId: number): Promise<DiscussionTeamNote
      ORDER BY dtn.created_at DESC`,
     [teamId]
   );
-  return result.rows;
+
+  // Transform attachment file paths to signed URLs
+  const { fileStorageService } = await import('../../services/FileStorageService');
+
+  const notesWithSignedUrls = await Promise.all(
+    result.rows.map(async (note) => {
+      if (note.attachments && Array.isArray(note.attachments)) {
+        const transformedAttachments = await Promise.all(
+          note.attachments.map(async (attachment: any) => {
+            if (attachment.url) {
+              const signedUrl = await fileStorageService.getSignedUrlFromPathOrUrl(attachment.url);
+              return { ...attachment, url: signedUrl };
+            }
+            return attachment;
+          })
+        );
+        return { ...note, attachments: transformedAttachments };
+      }
+      return note;
+    })
+  );
+
+  return notesWithSignedUrls;
 };
 
 export const getNotesByQuestion = async (teamId: number, questionId: number): Promise<DiscussionTeamNote[]> => {

@@ -30,6 +30,7 @@ router.get('/surveys/:id/my-response', authenticateToken, surveyController.getUs
 // Analytics routes (admin)
 router.get('/surveys/:id/responses', authenticateToken, requireAdmin, surveyController.getSurveyResponses);
 router.get('/surveys/:id/stats', authenticateToken, surveyController.getSurveyStats);
+router.get('/surveys/:id/aggregated-responses', authenticateToken, surveyController.getAggregatedResponses);
 
 // User available surveys
 router.get('/my-surveys', authenticateToken, surveyController.getAvailableSurveys);

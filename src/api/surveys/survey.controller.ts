@@ -309,3 +309,14 @@ export const getActivitySurveys = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch activity surveys' });
   }
 };
+
+export const getAggregatedResponses = async (req: Request, res: Response) => {
+  try {
+    const surveyId = parseInt(req.params.id);
+    const aggregated = await responseService.getAggregatedSurveyResponses(surveyId);
+    res.json(aggregated);
+  } catch (error) {
+    console.error('Error fetching aggregated responses:', error);
+    res.status(500).json({ error: 'Failed to fetch aggregated responses' });
+  }
+};

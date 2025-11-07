@@ -571,6 +571,120 @@ export const saveAnonymousProgress = async (
   return responseResult.rows[0] || null;
 };
 
+// Get aggregated responses for a survey (for discussion view)
+export const getAggregatedSurveyResponses = async (surveyId: number): Promise<any> => {
+  // Get survey details including questions
+  const survey = await getSurveyById(surveyId);
+  if (!survey || !survey.questions) {
+    throw new Error('Survey not found');
+  }
+
+  const aggregated: any = {};
+
+  // For each question, get all user responses
+  for (const question of survey.questions) {
+    const responses = await query(`
+      SELECT
+        sqr.text_response,
+        sqr.number_response,
+        sqr.date_response,
+        sqr.selected_option_ids,
+        sqr.rating_response,
+        sqr.created_at,
+        u.first_name,
+        u.last_name,
+        u.email,
+        sr.respondent_name,
+        sr.is_anonymous
+      FROM survey_question_responses sqr
+      JOIN survey_responses sr ON sqr.response_id = sr.id
+      LEFT JOIN users u ON sr.user_id = u.id
+      WHERE sqr.question_id = $1 AND sr.is_complete = true
+      ORDER BY sqr.created_at ASC
+    `, [question.id]);
+
+    // Calculate statistics based on question type
+    let stats: any = {};
+
+    if (question.question_type === 'RATING' && responses.rows.length > 0) {
+      const ratings = responses.rows.map(r => r.rating_response).filter(r => r != null);
+      stats.average = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+      stats.distribution = ratings.reduce((acc, rating) => {
+        acc[rating] = (acc[rating] || 0) + 1;
+        return acc;
+      }, {} as any);
+    } else if (['MULTIPLE_CHOICE', 'CHECKBOX'].includes(question.question_type) && question.options) {
+      stats.option_counts = {};
+      const totalResponses = responses.rows.length;
+
+      for (const option of question.options) {
+        const count = responses.rows.filter(r =>
+          r.selected_option_ids && r.selected_option_ids.includes(option.id)
+        ).length;
+
+        stats.option_counts[option.id] = {
+          text: option.option_text,
+          count: count,
+          percentage: totalResponses > 0 ? (count / totalResponses) * 100 : 0
+        };
+      }
+    } else if (question.question_type === 'YES_NO') {
+      const yesCount = responses.rows.filter(r => r.text_response === 'Yes').length;
+      const noCount = responses.rows.filter(r => r.text_response === 'No').length;
+      stats.yes_count = yesCount;
+      stats.no_count = noCount;
+    }
+
+    // Format user responses
+    const userResponses = responses.rows.map(row => ({
+      user_name: row.is_anonymous
+        ? row.respondent_name
+        : (row.first_name && row.last_name ? `${row.first_name} ${row.last_name}` : row.first_name || row.last_name || 'Unknown'),
+      answer: formatAnswer(question.question_type, row, question.options),
+      submitted_at: row.created_at
+    }));
+
+    aggregated[question.id] = {
+      question_id: question.id,
+      question_text: question.question_text,
+      question_type: question.question_type,
+      options: question.options || [],
+      response_count: responses.rows.length,
+      stats,
+      responses: userResponses
+    };
+  }
+
+  return aggregated;
+};
+
+// Helper to format answer based on question type
+function formatAnswer(questionType: string, row: any, options?: any[]): any {
+  switch (questionType) {
+    case 'TEXT':
+    case 'TEXTAREA':
+    case 'YES_NO':
+      return row.text_response;
+    case 'NUMBER':
+      return row.number_response;
+    case 'DATE':
+      return row.date_response;
+    case 'RATING':
+      return row.rating_response;
+    case 'MULTIPLE_CHOICE':
+    case 'CHECKBOX':
+      if (row.selected_option_ids && options) {
+        const selectedOptions = options.filter(opt =>
+          row.selected_option_ids.includes(opt.id)
+        );
+        return selectedOptions.map(opt => opt.option_text);
+      }
+      return [];
+    default:
+      return null;
+  }
+}
+
 // Helper function to validate email
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
