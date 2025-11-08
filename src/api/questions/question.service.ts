@@ -1,4 +1,5 @@
 import { query } from '../../config/db';
+import { fileStorageService } from '../../services/FileStorageService';
 
 export interface ActivityQuestion {
   id: number;
@@ -13,11 +14,61 @@ export interface ActivityQuestion {
     note_id: number;
     content: string;
     created_at: Date;
+    attachments?: Array<{ type: string; url: string }>;
   }>;
 }
 
 export interface CreateQuestionData {
   question_text: string;
+}
+
+/**
+ * Transform attachment URLs in question answers from file paths to signed URLs
+ */
+async function transformQuestionAnswersAttachments(question: ActivityQuestion): Promise<ActivityQuestion> {
+  if (!question || !question.answers || question.answers.length === 0) {
+    return question;
+  }
+
+  const transformedAnswers = await Promise.all(
+    question.answers.map(async (answer: any) => {
+      if (answer.attachments && Array.isArray(answer.attachments) && answer.attachments.length > 0) {
+        const transformedAttachments = await Promise.all(
+          answer.attachments.map(async (attachment: any) => {
+            if (attachment && attachment.url) {
+              const signedUrl = await fileStorageService.getSignedUrlFromPathOrUrl(attachment.url);
+              return {
+                ...attachment,
+                url: signedUrl
+              };
+            }
+            return attachment;
+          })
+        );
+        return {
+          ...answer,
+          attachments: transformedAttachments
+        };
+      }
+      return answer;
+    })
+  );
+
+  return {
+    ...question,
+    answers: transformedAnswers
+  };
+}
+
+/**
+ * Transform attachment URLs in an array of questions from file paths to signed URLs
+ */
+async function transformQuestionsAnswersAttachments(questions: ActivityQuestion[]): Promise<ActivityQuestion[]> {
+  if (!questions || questions.length === 0) {
+    return questions;
+  }
+
+  return Promise.all(questions.map(q => transformQuestionAnswersAttachments(q)));
 }
 
 const createQuestion = async (
@@ -49,7 +100,8 @@ const getQuestionsByActivity = async (
           json_build_object(
             'note_id', n.id,
             'content', n.content,
-            'created_at', n.created_at
+            'created_at', n.created_at,
+            'attachments', n.attachments
           ) ORDER BY n.created_at ASC
         ) FILTER (WHERE n.id IS NOT NULL),
         '[]'
@@ -67,7 +119,7 @@ const getQuestionsByActivity = async (
   const params = userId ? [activityId, userId] : [activityId];
   const result = await query(sql, params);
 
-  return result.rows.map((row: any) => ({
+  const questions = result.rows.map((row: any) => ({
     id: row.id,
     activity_id: row.activity_id,
     user_id: row.user_id,
@@ -77,6 +129,8 @@ const getQuestionsByActivity = async (
     activity_title: row.activity_title,
     answers: row.answers || []
   }));
+
+  return transformQuestionsAnswersAttachments(questions);
 };
 
 const getQuestionById = async (questionId: number): Promise<ActivityQuestion | null> => {
