@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import * as noteService from './note.service';
+import questionService from '../questions/question.service';
 
 export const createNote = async (req: Request, res: Response) => {
   try {
@@ -11,6 +12,15 @@ export const createNote = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Note content is required' });
     }
 
+    // If this note is an answer to a question, capture the question text as a snapshot
+    let question_text_snapshot: string | undefined;
+    if (question_id) {
+      const question = await questionService.getQuestionById(question_id);
+      if (question) {
+        question_text_snapshot = question.question_text;
+      }
+    }
+
     const noteData = {
       user_id: userId,
       activity_id: parseInt(activityId),
@@ -19,11 +29,12 @@ export const createNote = async (req: Request, res: Response) => {
       is_private,
       tags,
       attachments,
-      question_id
+      question_id,
+      question_text_snapshot
     };
 
     const note = await noteService.createNote(noteData);
-    
+
     res.status(201).json({
       success: true,
       note

@@ -11,6 +11,7 @@ export interface Note {
   tags: string[];
   attachments: any[];
   question_id?: number;
+  question_text_snapshot?: string;
   created_at: Date;
   updated_at: Date;
   // Joined fields
@@ -28,6 +29,7 @@ export interface CreateNoteData {
   tags?: string[];
   attachments?: any[];
   question_id?: number;
+  question_text_snapshot?: string;
 }
 
 export interface UpdateNoteData {
@@ -85,7 +87,8 @@ export const createNote = async (noteData: CreateNoteData): Promise<Note> => {
     is_private = false,
     tags = [],
     attachments = [],
-    question_id
+    question_id,
+    question_text_snapshot
   } = noteData;
   
   // Check if the tour has ended (making it read-only)
@@ -106,10 +109,10 @@ export const createNote = async (noteData: CreateNoteData): Promise<Note> => {
   }
   
   const result = await query(`
-    INSERT INTO notes (user_id, activity_id, title, content, is_private, tags, attachments, question_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    RETURNING id, user_id, activity_id, title, content, is_private, tags, attachments, question_id, created_at, updated_at
-  `, [user_id, activity_id, title || null, content, is_private, tags, JSON.stringify(attachments), question_id || null]);
+    INSERT INTO notes (user_id, activity_id, title, content, is_private, tags, attachments, question_id, question_text_snapshot)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING id, user_id, activity_id, title, content, is_private, tags, attachments, question_id, question_text_snapshot, created_at, updated_at
+  `, [user_id, activity_id, title || null, content, is_private, tags, JSON.stringify(attachments), question_id || null, question_text_snapshot || null]);
 
   return transformNoteAttachments(result.rows[0]);
 };
@@ -118,7 +121,7 @@ export const getNotesByActivity = async (activityId: number, userId?: number): P
   let queryText = `
     SELECT
       n.id, n.user_id, n.activity_id, n.title, n.content, n.is_private,
-      n.tags, n.attachments, n.question_id, n.created_at, n.updated_at,
+      n.tags, n.attachments, n.question_id, n.question_text_snapshot, n.created_at, n.updated_at,
       CONCAT(u.first_name, ' ', u.last_name) as user_name,
       a.title as activity_title,
       aq.question_text
@@ -151,7 +154,7 @@ export const getNotesByUser = async (userId: number): Promise<Note[]> => {
   const result = await query(`
     SELECT
       n.id, n.user_id, n.activity_id, n.title, n.content, n.is_private,
-      n.tags, n.attachments, n.question_id, n.created_at, n.updated_at,
+      n.tags, n.attachments, n.question_id, n.question_text_snapshot, n.created_at, n.updated_at,
       CONCAT(u.first_name, ' ', u.last_name) as user_name,
       a.title as activity_title,
       aq.question_text
@@ -170,7 +173,7 @@ export const getNoteById = async (id: number, userId?: number): Promise<Note | n
   let queryText = `
     SELECT
       n.id, n.user_id, n.activity_id, n.title, n.content, n.is_private,
-      n.tags, n.attachments, n.question_id, n.created_at, n.updated_at,
+      n.tags, n.attachments, n.question_id, n.question_text_snapshot, n.created_at, n.updated_at,
       CONCAT(u.first_name, ' ', u.last_name) as user_name,
       a.title as activity_title,
       aq.question_text
@@ -210,7 +213,7 @@ export const updateNote = async (id: number, updateData: UpdateNoteData, userId:
       attachments = COALESCE($6, attachments),
       updated_at = NOW()
     WHERE id = $1 AND user_id = $7
-    RETURNING id, user_id, activity_id, title, content, is_private, tags, attachments, question_id, created_at, updated_at
+    RETURNING id, user_id, activity_id, title, content, is_private, tags, attachments, question_id, question_text_snapshot, created_at, updated_at
   `, [
     id,
     title,
@@ -235,7 +238,7 @@ export const getNotesByTour = async (tourId: number, userId?: number): Promise<N
   let queryText = `
     SELECT
       n.id, n.user_id, n.activity_id, n.title, n.content, n.is_private,
-      n.tags, n.attachments, n.question_id, n.created_at, n.updated_at,
+      n.tags, n.attachments, n.question_id, n.question_text_snapshot, n.created_at, n.updated_at,
       CONCAT(u.first_name, ' ', u.last_name) as user_name,
       a.title as activity_title,
       aq.question_text
