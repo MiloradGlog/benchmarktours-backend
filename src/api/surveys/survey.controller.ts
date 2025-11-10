@@ -291,8 +291,24 @@ export const getAvailableSurveys = async (req: Request, res: Response) => {
 export const getTourSurveys = async (req: Request, res: Response) => {
   try {
     const tourId = parseInt(req.params.tourId);
+    const userId = req.user?.id;
     const surveys = await surveyService.getSurveysForTour(tourId);
-    res.json(surveys);
+
+    // Add user completion status for each survey
+    const surveysWithStatus = await Promise.all(
+      surveys.map(async (survey) => {
+        if (userId) {
+          const userResponse = await responseService.getUserResponse(survey.id, userId);
+          return {
+            ...survey,
+            user_has_completed: userResponse?.is_complete || false,
+          };
+        }
+        return survey;
+      })
+    );
+
+    res.json(surveysWithStatus);
   } catch (error) {
     console.error('Error fetching tour surveys:', error);
     res.status(500).json({ error: 'Failed to fetch tour surveys' });
@@ -302,8 +318,24 @@ export const getTourSurveys = async (req: Request, res: Response) => {
 export const getActivitySurveys = async (req: Request, res: Response) => {
   try {
     const activityId = parseInt(req.params.activityId);
+    const userId = req.user?.id;
     const surveys = await surveyService.getSurveysForActivity(activityId);
-    res.json(surveys);
+
+    // Add user completion status for each survey
+    const surveysWithStatus = await Promise.all(
+      surveys.map(async (survey) => {
+        if (userId) {
+          const userResponse = await responseService.getUserResponse(survey.id, userId);
+          return {
+            ...survey,
+            user_has_completed: userResponse?.is_complete || false,
+          };
+        }
+        return survey;
+      })
+    );
+
+    res.json(surveysWithStatus);
   } catch (error) {
     console.error('Error fetching activity surveys:', error);
     res.status(500).json({ error: 'Failed to fetch activity surveys' });
