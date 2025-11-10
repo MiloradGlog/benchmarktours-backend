@@ -298,7 +298,7 @@ export const getTourSurveys = async (req: Request, res: Response) => {
     const surveysWithStatus = await Promise.all(
       surveys.map(async (survey) => {
         if (userId) {
-          const userResponse = await responseService.getUserResponse(survey.id, userId);
+          const userResponse = await responseService.getUserSurveyResponse(userId, survey.id);
           return {
             ...survey,
             user_has_completed: userResponse?.is_complete || false,
@@ -325,7 +325,7 @@ export const getActivitySurveys = async (req: Request, res: Response) => {
     const surveysWithStatus = await Promise.all(
       surveys.map(async (survey) => {
         if (userId) {
-          const userResponse = await responseService.getUserResponse(survey.id, userId);
+          const userResponse = await responseService.getUserSurveyResponse(userId, survey.id);
           return {
             ...survey,
             user_has_completed: userResponse?.is_complete || false,
