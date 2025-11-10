@@ -102,7 +102,9 @@ const getQuestionsByActivity = async (
             'note_id', n.id,
             'content', n.content,
             'created_at', n.created_at,
-            'attachments', n.attachments
+            'attachments', n.attachments,
+            'user_id', n.user_id,
+            'user_name', u2.first_name || ' ' || u2.last_name
           ) ORDER BY n.created_at ASC
         ) FILTER (WHERE n.id IS NOT NULL),
         '[]'
@@ -112,6 +114,7 @@ const getQuestionsByActivity = async (
     LEFT JOIN activities a ON aq.activity_id = a.id
     LEFT JOIN notes n ON n.question_id = aq.id
       AND (n.is_private = false OR n.user_id = $2)
+    LEFT JOIN users u2 ON n.user_id = u2.id
     WHERE aq.activity_id = $1
     ${filterToUserOnly ? 'AND aq.user_id = $2' : ''}
     GROUP BY aq.id, u.first_name, u.last_name, a.title
