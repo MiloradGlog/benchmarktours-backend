@@ -56,9 +56,14 @@ router.get(
 
     try {
       const activityId = parseInt(req.params.id);
-      const userId = req.query.user_only === 'true' ? req.user?.id : undefined;
+      const currentUserId = req.user?.id;
+      const filterToUserOnly = req.query.user_only === 'true';
 
-      const questions = await questionService.getQuestionsByActivity(activityId, userId);
+      const questions = await questionService.getQuestionsByActivity(
+        activityId,
+        currentUserId,
+        filterToUserOnly
+      );
       res.json({ questions });
     } catch (error) {
       console.error('Error fetching questions:', error);

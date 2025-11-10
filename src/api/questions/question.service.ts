@@ -88,7 +88,8 @@ const createQuestion = async (
 
 const getQuestionsByActivity = async (
   activityId: number,
-  userId?: string
+  currentUserId?: string,
+  filterToUserOnly?: boolean
 ): Promise<ActivityQuestion[]> => {
   const sql = `
     SELECT
@@ -109,14 +110,15 @@ const getQuestionsByActivity = async (
     FROM activity_questions aq
     LEFT JOIN users u ON aq.user_id = u.id
     LEFT JOIN activities a ON aq.activity_id = a.id
-    LEFT JOIN notes n ON n.question_id = aq.id AND n.user_id = aq.user_id
+    LEFT JOIN notes n ON n.question_id = aq.id
+      AND (n.is_private = false OR n.user_id = $2)
     WHERE aq.activity_id = $1
-    ${userId ? 'AND aq.user_id = $2' : ''}
+    ${filterToUserOnly ? 'AND aq.user_id = $2' : ''}
     GROUP BY aq.id, u.first_name, u.last_name, a.title
     ORDER BY aq.created_at DESC
   `;
 
-  const params = userId ? [activityId, userId] : [activityId];
+  const params = [activityId, currentUserId];
   const result = await query(sql, params);
 
   const questions = result.rows.map((row: any) => ({
