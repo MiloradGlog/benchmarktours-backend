@@ -30,8 +30,8 @@ const createCompanyValidation = [
   body('description')
     .optional()
     .trim()
-    .isLength({ max: 1000 })
-    .withMessage('Description must be less than 1000 characters')
+    .isLength({ max: 5000 })
+    .withMessage('Description must be less than 5000 characters')
 ];
 
 const updateCompanyValidation = [
@@ -53,8 +53,8 @@ const updateCompanyValidation = [
   body('description')
     .optional()
     .trim()
-    .isLength({ max: 1000 })
-    .withMessage('Description must be less than 1000 characters')
+    .isLength({ max: 5000 })
+    .withMessage('Description must be less than 5000 characters')
 ];
 
 // Routes - GET routes allow any authenticated user, others require admin
