@@ -237,3 +237,147 @@ export const getRecentTourActivity = async (tourId: number, userId: string): Pro
 
   return result.rows;
 };
+
+export interface Attachment {
+  url: string;
+  type: 'image' | 'audio' | 'video';
+  timestamp?: string;
+}
+
+export interface TourPhoto {
+  url: string;
+  source: 'note' | 'discussion';
+  source_name: string; // Activity title or Team name
+  created_at: Date;
+  created_by?: string;
+  author_name?: string;
+}
+
+export const getAllTourPhotos = async (tourId: number, userId: string): Promise<TourPhoto[]> => {
+  // Verify user is a participant of this tour
+  const participantCheck = await query(`
+    SELECT 1 FROM tour_participants
+    WHERE tour_id = $1 AND user_id = $2
+  `, [tourId, userId]);
+
+  if (participantCheck.rows.length === 0) {
+    throw new Error('Access denied - user is not a participant of this tour');
+  }
+
+  // Get photos from activity notes (user's private notes + all public notes with photos)
+  // LIMIT to 500 notes for safety
+  const notePhotosResult = await query(`
+    SELECT
+      n.attachments,
+      a.title as activity_title,
+      n.created_at,
+      n.user_id as created_by,
+      u.first_name || ' ' || u.last_name as author_name
+    FROM notes n
+    JOIN activities a ON n.activity_id = a.id
+    JOIN users u ON n.user_id = u.id
+    WHERE a.tour_id = $1
+      AND (n.user_id = $2 OR n.is_private = false)
+      AND n.attachments IS NOT NULL
+      AND jsonb_array_length(n.attachments) > 0
+    ORDER BY n.created_at DESC
+    LIMIT 500
+  `, [tourId, userId]);
+
+  // Get photos from discussion team notes (all teams)
+  // LIMIT to 500 notes for safety
+  const discussionPhotosResult = await query(`
+    SELECT
+      dtn.attachments,
+      dt.name as team_name,
+      dtn.created_at,
+      dtn.created_by,
+      u.first_name || ' ' || u.last_name as author_name
+    FROM discussion_team_notes dtn
+    JOIN discussion_teams dt ON dtn.team_id = dt.id
+    JOIN activities a ON dt.discussion_activity_id = a.id
+    JOIN users u ON dtn.created_by = u.id
+    WHERE a.tour_id = $1
+      AND dtn.attachments IS NOT NULL
+      AND jsonb_array_length(dtn.attachments) > 0
+    ORDER BY dtn.created_at DESC
+    LIMIT 500
+  `, [tourId]);
+
+  // Phase 1: Collect all photo metadata and URLs to sign
+  interface PhotoMetadata {
+    url: string;
+    source: 'note' | 'discussion';
+    source_name: string;
+    created_at: Date;
+    created_by?: string;
+    author_name?: string;
+  }
+
+  const photoMetadata: PhotoMetadata[] = [];
+  const urlsToSign: string[] = [];
+
+  // Process note photos
+  for (const row of notePhotosResult.rows) {
+    const attachments = row.attachments as Attachment[];
+    if (Array.isArray(attachments)) {
+      for (const attachment of attachments) {
+        // Only include image attachments, skip voice notes and other types
+        if (attachment?.url && attachment?.type === 'image') {
+          photoMetadata.push({
+            url: attachment.url, // Store original URL temporarily
+            source: 'note',
+            source_name: row.activity_title || 'Unknown Activity',
+            created_at: row.created_at,
+            created_by: row.created_by || undefined,
+            author_name: row.author_name || undefined
+          });
+          urlsToSign.push(attachment.url);
+        }
+      }
+    }
+  }
+
+  // Process discussion photos
+  for (const row of discussionPhotosResult.rows) {
+    const attachments = row.attachments as Attachment[];
+    if (Array.isArray(attachments)) {
+      for (const attachment of attachments) {
+        // Only include image attachments
+        if (attachment?.url && attachment?.type === 'image') {
+          photoMetadata.push({
+            url: attachment.url, // Store original URL temporarily
+            source: 'discussion',
+            source_name: row.team_name || 'Unknown Team',
+            created_at: row.created_at,
+            created_by: row.created_by || undefined,
+            author_name: row.author_name || undefined
+          });
+          urlsToSign.push(attachment.url);
+        }
+      }
+    }
+  }
+
+  // Phase 2: Batch sign all URLs in parallel for performance
+  const signedUrls = await Promise.all(
+    urlsToSign.map(url => fileStorageService.getSignedUrlFromPathOrUrl(url))
+  );
+
+  // Phase 3: Construct final photo objects with signed URLs
+  const photos: TourPhoto[] = [];
+  for (let i = 0; i < photoMetadata.length; i++) {
+    const signedUrl = signedUrls[i];
+    if (signedUrl) {
+      photos.push({
+        ...photoMetadata[i],
+        url: signedUrl
+      });
+    }
+  }
+
+  // Sort all photos by created_at descending
+  photos.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  return photos;
+};

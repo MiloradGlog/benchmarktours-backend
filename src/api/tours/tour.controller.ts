@@ -9,6 +9,7 @@ import {
   deleteTour,
   getUserTourStats,
   getRecentTourActivity,
+  getAllTourPhotos,
   CreateTourData,
   UpdateTourData,
   TourStatus
@@ -255,6 +256,33 @@ export const getRecentTourActivityController = async (req: Request, res: Respons
     res.status(200).json({ activities });
   } catch (error: any) {
     console.error('Get recent tour activity error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const getAllTourPhotosController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tourId = parseInt(req.params.id);
+    if (isNaN(tourId)) {
+      res.status(400).json({ error: 'Invalid tour ID' });
+      return;
+    }
+
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
+
+    const photos = await getAllTourPhotos(tourId, userId);
+    res.status(200).json({ photos });
+  } catch (error: any) {
+    // Handle access denied errors
+    if (error.message?.includes('Access denied')) {
+      res.status(403).json({ error: error.message });
+      return;
+    }
+    console.error('Get all tour photos error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
