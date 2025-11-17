@@ -76,6 +76,10 @@ const createQuestion = async (
   userId: string,
   data: CreateQuestionData
 ): Promise<ActivityQuestion> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnly } = await import('../../utils/tourAccess');
+  await checkTourReadOnly(activityId);
+
   const sql = `
     INSERT INTO activity_questions (activity_id, user_id, question_text)
     VALUES ($1, $2, $3)
@@ -155,6 +159,10 @@ const getQuestionById = async (questionId: number): Promise<ActivityQuestion | n
 };
 
 const deleteQuestion = async (questionId: number, userId: string, deleteAnswers: boolean = false): Promise<boolean> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByQuestionId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByQuestionId(questionId);
+
   // If deleteAnswers is true, delete related notes first
   if (deleteAnswers) {
     await query(

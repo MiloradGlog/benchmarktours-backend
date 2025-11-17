@@ -36,6 +36,10 @@ router.post(
       res.status(201).json({ question });
     } catch (error) {
       console.error('Error creating question:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create question';
+      if (errorMessage.includes('tour has ended and is now read-only')) {
+        return res.status(403).json({ error: errorMessage });
+      }
       res.status(500).json({ error: 'Failed to create question' });
     }
   }
@@ -134,6 +138,10 @@ router.delete(
       res.json({ message: 'Question deleted successfully' });
     } catch (error) {
       console.error('Error deleting question:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete question';
+      if (errorMessage.includes('tour has ended and is now read-only')) {
+        return res.status(403).json({ error: errorMessage });
+      }
       res.status(500).json({ error: 'Failed to delete question' });
     }
   }

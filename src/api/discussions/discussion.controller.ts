@@ -113,6 +113,10 @@ export const updateDiscussion = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error updating discussion:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update discussion';
+    if (errorMessage.includes('tour has ended and is now read-only')) {
+      return res.status(403).json({ error: errorMessage });
+    }
     res.status(500).json({ error: 'Failed to update discussion' });
   }
 };
@@ -145,6 +149,10 @@ export const deleteDiscussion = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error deleting discussion:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to delete discussion';
+    if (errorMessage.includes('tour has ended and is now read-only')) {
+      return res.status(403).json({ error: errorMessage });
+    }
     res.status(500).json({ error: 'Failed to delete discussion' });
   }
 };
@@ -175,8 +183,9 @@ export const createMessage = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error creating message:', error);
-    if (error.message === 'Discussion is locked') {
-      return res.status(403).json({ error: 'Discussion is locked' });
+    const errorMessage = error.message || 'Failed to create message';
+    if (errorMessage === 'Discussion is locked' || errorMessage.includes('tour has ended and is now read-only')) {
+      return res.status(403).json({ error: errorMessage });
     }
     res.status(500).json({ error: 'Failed to create message' });
   }
@@ -228,6 +237,10 @@ export const updateMessage = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error updating message:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update message';
+    if (errorMessage.includes('tour has ended and is now read-only')) {
+      return res.status(403).json({ error: errorMessage });
+    }
     res.status(500).json({ error: 'Failed to update message' });
   }
 };
@@ -249,6 +262,10 @@ export const deleteMessage = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error deleting message:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to delete message';
+    if (errorMessage.includes('tour has ended and is now read-only')) {
+      return res.status(403).json({ error: errorMessage });
+    }
     res.status(500).json({ error: 'Failed to delete message' });
   }
 };
@@ -272,6 +289,10 @@ export const addReaction = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error adding reaction:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to add reaction';
+    if (errorMessage.includes('tour has ended and is now read-only')) {
+      return res.status(403).json({ error: errorMessage });
+    }
     res.status(500).json({ error: 'Failed to add reaction' });
   }
 };
@@ -297,6 +318,10 @@ export const removeReaction = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error removing reaction:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to remove reaction';
+    if (errorMessage.includes('tour has ended and is now read-only')) {
+      return res.status(403).json({ error: errorMessage });
+    }
     res.status(500).json({ error: 'Failed to remove reaction' });
   }
 };
@@ -346,6 +371,10 @@ export const createActivityMessage = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error creating activity message:', error);
+    const errorMessage = error.message || 'Failed to create message';
+    if (errorMessage.includes('tour has ended and is now read-only')) {
+      return res.status(403).json({ error: errorMessage });
+    }
     res.status(500).json({ error: 'Failed to create message' });
   }
 };

@@ -92,21 +92,8 @@ export const createNote = async (noteData: CreateNoteData): Promise<Note> => {
   } = noteData;
   
   // Check if the tour has ended (making it read-only)
-  const tourCheck = await query(`
-    SELECT t.end_date
-    FROM activities a
-    JOIN tours t ON a.tour_id = t.id
-    WHERE a.id = $1
-  `, [activity_id]);
-  
-  if (tourCheck.rows.length > 0) {
-    const tourEndDate = new Date(tourCheck.rows[0].end_date);
-    const now = new Date();
-
-    if (now > tourEndDate) {
-      throw new Error('This tour has ended and is now read-only');
-    }
-  }
+  const { checkTourReadOnly } = await import('../../utils/tourAccess');
+  await checkTourReadOnly(activity_id);
   
   const result = await query(`
     INSERT INTO notes (user_id, activity_id, title, content, is_private, tags, attachments, question_id, question_text_snapshot)
@@ -115,7 +102,7 @@ export const createNote = async (noteData: CreateNoteData): Promise<Note> => {
   `, [user_id, activity_id, title || null, content, is_private, tags, JSON.stringify(attachments), question_id || null, question_text_snapshot || null]);
 
   return transformNoteAttachments(result.rows[0]);
-};
+};;
 
 export const getNotesByActivity = async (activityId: number, userId?: number): Promise<Note[]> => {
   let queryText = `
@@ -203,6 +190,10 @@ export const getNoteById = async (id: number, userId?: number): Promise<Note | n
 export const updateNote = async (id: number, updateData: UpdateNoteData, userId: number): Promise<Note | null> => {
   const { title, content, is_private, tags, attachments } = updateData;
   
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByNoteId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByNoteId(id);
+  
   const result = await query(`
     UPDATE notes
     SET
@@ -226,12 +217,16 @@ export const updateNote = async (id: number, updateData: UpdateNoteData, userId:
 
   const note = result.rows[0] || null;
   return note ? transformNoteAttachments(note) : null;
-};
+};;
 
 export const deleteNote = async (id: number, userId: number): Promise<boolean> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByNoteId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByNoteId(id);
+  
   const result = await query('DELETE FROM notes WHERE id = $1 AND user_id = $2', [id, userId]);
   return result.rowCount > 0;
-};
+};;
 
 // Get notes for a specific tour (all activities in the tour)
 export const getNotesByTour = async (tourId: number, userId?: number): Promise<Note[]> => {

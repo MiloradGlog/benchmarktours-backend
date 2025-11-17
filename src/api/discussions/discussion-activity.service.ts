@@ -38,6 +38,10 @@ export const createTeam = async (
   discussionActivityId: number,
   data: CreateTeamData
 ): Promise<DiscussionTeam> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnly } = await import('../../utils/tourAccess');
+  await checkTourReadOnly(discussionActivityId);
+
   const result = await query(
     `INSERT INTO discussion_teams
      (discussion_activity_id, name, description, order_index)
@@ -52,6 +56,10 @@ export const updateTeam = async (
   teamId: number,
   data: UpdateTeamData
 ): Promise<DiscussionTeam> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByTeamId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByTeamId(teamId);
+
   const fields: string[] = [];
   const values: any[] = [];
   let paramCount = 1;
@@ -83,6 +91,10 @@ export const updateTeam = async (
 };
 
 export const deleteTeam = async (teamId: number): Promise<void> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByTeamId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByTeamId(teamId);
+
   await query('DELETE FROM discussion_teams WHERE id = $1', [teamId]);
 };
 
@@ -105,6 +117,10 @@ export const getTeamMembers = async (teamId: number): Promise<DiscussionTeamMemb
 };
 
 export const assignTeamMember = async (data: AssignTeamMemberData): Promise<DiscussionTeamMember> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByTeamId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByTeamId(data.team_id);
+
   const result = await query(
     `INSERT INTO discussion_team_members
      (team_id, user_id)
@@ -116,6 +132,10 @@ export const assignTeamMember = async (data: AssignTeamMemberData): Promise<Disc
 };
 
 export const removeTeamMember = async (teamId: number, userId: string): Promise<void> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByTeamId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByTeamId(teamId);
+
   await query(
     'DELETE FROM discussion_team_members WHERE team_id = $1 AND user_id = $2',
     [teamId, userId]
@@ -157,6 +177,10 @@ export const createQuestion = async (
   discussionActivityId: number,
   data: CreateQuestionData
 ): Promise<DiscussionQuestion> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnly } = await import('../../utils/tourAccess');
+  await checkTourReadOnly(discussionActivityId);
+
   const result = await query(
     `INSERT INTO discussion_questions
      (discussion_activity_id, question_text, order_index, is_required)
@@ -171,6 +195,10 @@ export const updateQuestion = async (
   questionId: number,
   data: UpdateQuestionData
 ): Promise<DiscussionQuestion> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByDiscussionQuestionId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByDiscussionQuestionId(questionId);
+
   const fields: string[] = [];
   const values: any[] = [];
   let paramCount = 1;
@@ -202,6 +230,10 @@ export const updateQuestion = async (
 };
 
 export const deleteQuestion = async (questionId: number): Promise<void> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByDiscussionQuestionId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByDiscussionQuestionId(questionId);
+
   await query('DELETE FROM discussion_questions WHERE id = $1', [questionId]);
 };
 
@@ -263,6 +295,10 @@ export const createTeamNote = async (
   userId: string,
   data: CreateTeamNoteData
 ): Promise<DiscussionTeamNote> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByTeamId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByTeamId(data.team_id);
+
   const attachments = data.attachments || [];
   const result = await query(
     `INSERT INTO discussion_team_notes
@@ -279,6 +315,10 @@ export const updateTeamNote = async (
   userId: string,
   data: UpdateTeamNoteData
 ): Promise<DiscussionTeamNote> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByTeamNoteId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByTeamNoteId(noteId);
+
   // Verify the user is the author
   const checkResult = await query(
     'SELECT created_by FROM discussion_team_notes WHERE id = $1',
@@ -305,6 +345,10 @@ export const updateTeamNote = async (
 };
 
 export const deleteTeamNote = async (noteId: number, userId: string): Promise<void> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByTeamNoteId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByTeamNoteId(noteId);
+
   // Verify the user is the author
   const checkResult = await query(
     'SELECT created_by FROM discussion_team_notes WHERE id = $1',

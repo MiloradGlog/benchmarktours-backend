@@ -41,6 +41,10 @@ export const createNote = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error creating note:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create note';
+    if (errorMessage.includes('tour has ended and is now read-only')) {
+      return res.status(403).json({ error: errorMessage });
+    }
     res.status(500).json({ error: 'Failed to create note' });
   }
 };
@@ -138,6 +142,10 @@ export const updateNote = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error updating note:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update note';
+    if (errorMessage.includes('tour has ended and is now read-only')) {
+      return res.status(403).json({ error: errorMessage });
+    }
     res.status(500).json({ error: 'Failed to update note' });
   }
 };
@@ -159,6 +167,10 @@ export const deleteNote = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error deleting note:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to delete note';
+    if (errorMessage.includes('tour has ended and is now read-only')) {
+      return res.status(403).json({ error: errorMessage });
+    }
     res.status(500).json({ error: 'Failed to delete note' });
   }
 };

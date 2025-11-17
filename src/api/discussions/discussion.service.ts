@@ -123,14 +123,18 @@ export const getDiscussionById = async (id: number, userId: number): Promise<Dis
 };
 
 export const updateDiscussion = async (
-  id: number, 
+  id: number,
   updates: { title?: string; description?: string; is_pinned?: boolean; is_locked?: boolean }
 ): Promise<Discussion | null> => {
   const { title, description, is_pinned, is_locked } = updates;
-  
+
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByDiscussionId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByDiscussionId(id);
+
   const result = await query(`
-    UPDATE discussions 
-    SET 
+    UPDATE discussions
+    SET
       title = COALESCE($2, title),
       description = COALESCE($3, description),
       is_pinned = COALESCE($4, is_pinned),
@@ -139,11 +143,15 @@ export const updateDiscussion = async (
     WHERE id = $1
     RETURNING *
   `, [id, title, description, is_pinned, is_locked]);
-  
+
   return result.rows[0] || null;
 };
 
 export const deleteDiscussion = async (id: number): Promise<boolean> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByDiscussionId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByDiscussionId(id);
+
   const result = await query('DELETE FROM discussions WHERE id = $1', [id]);
   return result.rowCount > 0;
 };
@@ -151,17 +159,21 @@ export const deleteDiscussion = async (id: number): Promise<boolean> => {
 // Message operations
 export const createMessage = async (data: CreateMessageData): Promise<DiscussionMessage> => {
   const { discussion_id, user_id, parent_message_id, content, image_url, voice_recording_url } = data;
-  
+
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByDiscussionId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByDiscussionId(discussion_id);
+
   // Check if discussion is locked
   const discussionCheck = await query(
     'SELECT is_locked FROM discussions WHERE id = $1',
     [discussion_id]
   );
-  
+
   if (discussionCheck.rows[0]?.is_locked) {
     throw new Error('Discussion is locked');
   }
-  
+
   const result = await query(`
     INSERT INTO discussion_messages (discussion_id, user_id, parent_message_id, content, image_url, voice_recording_url)
     VALUES ($1, $2, $3, $4, $5, $6)
@@ -227,21 +239,25 @@ export const getMessagesByDiscussion = async (discussionId: number, userId: numb
 };;
 
 export const updateMessage = async (
-  id: number, 
-  userId: number, 
+  id: number,
+  userId: number,
   updates: { content?: string; image_url?: string; voice_recording_url?: string }
 ): Promise<DiscussionMessage | null> => {
   const { content, image_url, voice_recording_url } = updates;
-  
+
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByMessageId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByMessageId(id);
+
   // Get current message to check if we need to delete old media
   let oldImageUrl: string | null = null;
   let oldVoiceUrl: string | null = null;
-  
+
   const currentResult = await query(
     'SELECT image_url, voice_recording_url FROM discussion_messages WHERE id = $1 AND user_id = $2',
     [id, userId]
   );
-  
+
   if (currentResult.rows[0]) {
     const current = currentResult.rows[0];
     if (image_url !== undefined && current.image_url && current.image_url !== image_url) {
@@ -251,10 +267,10 @@ export const updateMessage = async (
       oldVoiceUrl = current.voice_recording_url;
     }
   }
-  
+
   const result = await query(`
-    UPDATE discussion_messages 
-    SET 
+    UPDATE discussion_messages
+    SET
       content = COALESCE($3, content),
       image_url = COALESCE($4, image_url),
       voice_recording_url = COALESCE($5, voice_recording_url),
@@ -263,7 +279,7 @@ export const updateMessage = async (
     WHERE id = $1 AND user_id = $2
     RETURNING *
   `, [id, userId, content, image_url, voice_recording_url]);
-  
+
   // If update was successful and we have old media to delete
   if (result.rows[0]) {
     if (oldImageUrl) {
@@ -273,24 +289,28 @@ export const updateMessage = async (
       await fileStorageService.deleteFileByUrl(oldVoiceUrl);
     }
   }
-  
+
   return result.rows[0] || null;
 };
 
 export const deleteMessage = async (id: number, userId: number): Promise<boolean> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByMessageId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByMessageId(id);
+
   // Get message first to retrieve media URLs
   const messageResult = await query(
     'SELECT image_url, voice_recording_url FROM discussion_messages WHERE id = $1 AND user_id = $2',
     [id, userId]
   );
-  
+
   const message = messageResult.rows[0];
-  
+
   const result = await query(
     'DELETE FROM discussion_messages WHERE id = $1 AND user_id = $2',
     [id, userId]
   );
-  
+
   // If deletion was successful and message had media, delete from GCP
   if (result.rowCount > 0 && message) {
     if (message.image_url) {
@@ -300,16 +320,20 @@ export const deleteMessage = async (id: number, userId: number): Promise<boolean
       await fileStorageService.deleteFileByUrl(message.voice_recording_url);
     }
   }
-  
+
   return result.rowCount > 0;
 };
 
 // Reaction operations
 export const addReaction = async (
-  messageId: number, 
-  userId: number, 
+  messageId: number,
+  userId: number,
   reaction: string
 ): Promise<void> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByMessageId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByMessageId(messageId);
+
   await query(`
     INSERT INTO message_reactions (message_id, user_id, reaction)
     VALUES ($1, $2, $3)
@@ -318,12 +342,16 @@ export const addReaction = async (
 };
 
 export const removeReaction = async (
-  messageId: number, 
-  userId: number, 
+  messageId: number,
+  userId: number,
   reaction: string
 ): Promise<boolean> => {
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnlyByMessageId } = await import('../../utils/tourAccess');
+  await checkTourReadOnlyByMessageId(messageId);
+
   const result = await query(`
-    DELETE FROM message_reactions 
+    DELETE FROM message_reactions
     WHERE message_id = $1 AND user_id = $2 AND reaction = $3
   `, [messageId, userId, reaction]);
   return result.rowCount > 0;
@@ -386,28 +414,23 @@ export const checkPostTourAccess = async (tourId: number): Promise<boolean> => {
 // Activity message operations (simplified for Phase 6)
 export const createActivityMessage = async (activityId: number, data: any): Promise<DiscussionMessage> => {
   const { user_id, content, image_url, voice_recording_url } = data;
-  
+
+  // Check if the tour has ended (making it read-only)
+  const { checkTourReadOnly } = await import('../../utils/tourAccess');
+  await checkTourReadOnly(activityId);
+
   // Get activity and tour information
   const activityCheck = await query(`
-    SELECT a.title, a.tour_id, t.end_date
+    SELECT a.title, a.tour_id
     FROM activities a
-    JOIN tours t ON a.tour_id = t.id
     WHERE a.id = $1
   `, [activityId]);
-  
+
   if (activityCheck.rows.length === 0) {
     throw new Error('Activity not found');
   }
-  
-  const { title: activityTitle, tour_id, end_date } = activityCheck.rows[0];
-  
-  // Check if the tour has ended (making it read-only)
-  const tourEndDate = new Date(end_date);
-  const now = new Date();
 
-  if (now > tourEndDate) {
-    throw new Error('This tour has ended and is now read-only');
-  }
+  const { title: activityTitle, tour_id } = activityCheck.rows[0];
   
   // Check if a discussion already exists for this activity
   let discussionId;

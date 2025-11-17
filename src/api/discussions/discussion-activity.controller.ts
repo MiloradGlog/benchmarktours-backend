@@ -1,6 +1,16 @@
 import { Request, Response } from 'express';
 import * as discussionActivityService from './discussion-activity.service';
 
+// Helper function to handle read-only errors
+const handleReadOnlyError = (error: unknown, res: Response, defaultMessage: string): boolean => {
+  const errorMessage = error instanceof Error ? error.message : defaultMessage;
+  if (errorMessage.includes('tour has ended and is now read-only')) {
+    res.status(403).json({ error: errorMessage });
+    return true;
+  }
+  return false;
+};
+
 // ==================== DISCUSSION TEAMS ====================
 
 export const getTeamsByDiscussion = async (req: Request, res: Response): Promise<void> => {
@@ -21,6 +31,7 @@ export const createTeam = async (req: Request, res: Response): Promise<void> => 
     res.status(201).json(team);
   } catch (error) {
     console.error('Error creating team:', error);
+    if (handleReadOnlyError(error, res, 'Failed to create team')) return;
     res.status(500).json({ error: 'Failed to create team' });
   }
 };
@@ -32,6 +43,7 @@ export const updateTeam = async (req: Request, res: Response): Promise<void> => 
     res.json(team);
   } catch (error) {
     console.error('Error updating team:', error);
+    if (handleReadOnlyError(error, res, 'Failed to update team')) return;
     res.status(500).json({ error: 'Failed to update team' });
   }
 };
@@ -43,6 +55,7 @@ export const deleteTeam = async (req: Request, res: Response): Promise<void> => 
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting team:', error);
+    if (handleReadOnlyError(error, res, 'Failed to delete team')) return;
     res.status(500).json({ error: 'Failed to delete team' });
   }
 };
@@ -66,6 +79,7 @@ export const assignTeamMember = async (req: Request, res: Response): Promise<voi
     res.status(201).json(member);
   } catch (error) {
     console.error('Error assigning team member:', error);
+    if (handleReadOnlyError(error, res, 'Failed to assign team member')) return;
     res.status(500).json({ error: 'Failed to assign team member' });
   }
 };
@@ -78,22 +92,25 @@ export const removeTeamMember = async (req: Request, res: Response): Promise<voi
     res.status(204).send();
   } catch (error) {
     console.error('Error removing team member:', error);
+    if (handleReadOnlyError(error, res, 'Failed to remove team member')) return;
     res.status(500).json({ error: 'Failed to remove team member' });
   }
 };
 
-export const setPresenter = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const teamId = parseInt(req.params.teamId);
-    const userId = req.params.userId;
-    const { is_presenter } = req.body;
-    await discussionActivityService.setPresenter(teamId, userId, is_presenter);
-    res.status(200).json({ message: 'Presenter status updated' });
-  } catch (error) {
-    console.error('Error setting presenter:', error);
-    res.status(500).json({ error: 'Failed to set presenter' });
-  }
-};
+// ==================== REMOVED: PRESENTER (not needed for simplified discussion) ====================
+
+// export const setPresenter = async (req: Request, res: Response): Promise<void> => {
+//   try {
+//     const teamId = parseInt(req.params.teamId);
+//     const userId = req.params.userId;
+//     const { is_presenter } = req.body;
+//     await discussionActivityService.setPresenter(teamId, userId, is_presenter);
+//     res.status(200).json({ message: 'Presenter status updated' });
+//   } catch (error) {
+//     console.error('Error setting presenter:', error);
+//     res.status(500).json({ error: 'Failed to set presenter' });
+//   }
+// };
 
 // ==================== DISCUSSION QUESTIONS ====================
 
@@ -115,6 +132,7 @@ export const createQuestion = async (req: Request, res: Response): Promise<void>
     res.status(201).json(question);
   } catch (error) {
     console.error('Error creating question:', error);
+    if (handleReadOnlyError(error, res, 'Failed to create question')) return;
     res.status(500).json({ error: 'Failed to create question' });
   }
 };
@@ -126,6 +144,7 @@ export const updateQuestion = async (req: Request, res: Response): Promise<void>
     res.json(question);
   } catch (error) {
     console.error('Error updating question:', error);
+    if (handleReadOnlyError(error, res, 'Failed to update question')) return;
     res.status(500).json({ error: 'Failed to update question' });
   }
 };
@@ -137,6 +156,7 @@ export const deleteQuestion = async (req: Request, res: Response): Promise<void>
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting question:', error);
+    if (handleReadOnlyError(error, res, 'Failed to delete question')) return;
     res.status(500).json({ error: 'Failed to delete question' });
   }
 };
@@ -161,6 +181,7 @@ export const createTeamNote = async (req: Request, res: Response): Promise<void>
     res.status(201).json(note);
   } catch (error) {
     console.error('Error creating note:', error);
+    if (handleReadOnlyError(error, res, 'Failed to create note')) return;
     res.status(500).json({ error: 'Failed to create note' });
   }
 };
@@ -173,6 +194,7 @@ export const updateTeamNote = async (req: Request, res: Response): Promise<void>
     res.json(note);
   } catch (error: any) {
     console.error('Error updating note:', error);
+    if (handleReadOnlyError(error, res, 'Failed to update note')) return;
     if (error.message === 'Only the author can update this note') {
       res.status(403).json({ error: error.message });
     } else if (error.message === 'Note not found') {
@@ -191,6 +213,7 @@ export const deleteTeamNote = async (req: Request, res: Response): Promise<void>
     res.status(204).send();
   } catch (error: any) {
     console.error('Error deleting note:', error);
+    if (handleReadOnlyError(error, res, 'Failed to delete note')) return;
     if (error.message === 'Only the author can delete this note') {
       res.status(403).json({ error: error.message });
     } else if (error.message === 'Note not found') {
@@ -217,11 +240,10 @@ export const getDiscussionDetails = async (req: Request, res: Response): Promise
 export const initializeDiscussion = async (req: Request, res: Response): Promise<void> => {
   try {
     const activityId = parseInt(req.params.activityId);
-    const { team_count, questions } = req.body;
+    const { team_count } = req.body;
     const details = await discussionActivityService.initializeDiscussion(
       activityId,
-      team_count,
-      questions
+      team_count
     );
     res.status(201).json(details);
   } catch (error) {
