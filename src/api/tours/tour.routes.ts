@@ -16,6 +16,7 @@ import {
 } from './tour.controller';
 import activityRoutes from '../activities/activity.routes';
 import participantRoutes from './participants.routes';
+import tourPhotosRoutes from './tour-photos.routes';
 
 const router = Router();
 
@@ -113,5 +114,6 @@ router.get('/:id/photos', authenticateToken, getAllTourPhotosController);
 // Nested routes - participants has its own auth control, activities need admin
 router.use('/:tourId/activities', authenticateToken, requireAdmin, activityRoutes);
 router.use('/:tourId/participants', participantRoutes); // Auth handled in participants.routes.ts
+router.use('/:tourId/photos', tourPhotosRoutes); // Auth handled in tour-photos.routes.ts
 
 export default router;

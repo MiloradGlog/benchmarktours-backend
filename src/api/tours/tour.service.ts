@@ -246,8 +246,8 @@ export interface Attachment {
 
 export interface TourPhoto {
   url: string;
-  source: 'note' | 'discussion';
-  source_name: string; // Activity title or Team name
+  source: 'note' | 'tour';
+  source_name: string; // Activity title, team name, or daily photo date
   created_at: Date;
   created_by?: string;
   author_name?: string;
@@ -284,30 +284,26 @@ export const getAllTourPhotos = async (tourId: number, userId: string): Promise<
     LIMIT 500
   `, [tourId, userId]);
 
-  // Get photos from discussion team notes (all teams)
-  // LIMIT to 500 notes for safety
-  const discussionPhotosResult = await query(`
+  // Get photos from tour_photos table
+  const tourPhotosResult = await query(`
     SELECT
-      dtn.attachments,
-      dt.name as team_name,
-      dtn.created_at,
-      dtn.created_by,
+      tp.image_url,
+      tp.caption,
+      tp.photo_date,
+      tp.created_at,
+      tp.user_id as created_by,
       u.first_name || ' ' || u.last_name as author_name
-    FROM discussion_team_notes dtn
-    JOIN discussion_teams dt ON dtn.team_id = dt.id
-    JOIN activities a ON dt.discussion_activity_id = a.id
-    JOIN users u ON dtn.created_by = u.id
-    WHERE a.tour_id = $1
-      AND dtn.attachments IS NOT NULL
-      AND jsonb_array_length(dtn.attachments) > 0
-    ORDER BY dtn.created_at DESC
+    FROM tour_photos tp
+    JOIN users u ON tp.user_id = u.id
+    WHERE tp.tour_id = $1
+    ORDER BY tp.created_at DESC
     LIMIT 500
   `, [tourId]);
 
   // Phase 1: Collect all photo metadata and URLs to sign
   interface PhotoMetadata {
     url: string;
-    source: 'note' | 'discussion';
+    source: 'note' | 'tour';
     source_name: string;
     created_at: Date;
     created_by?: string;
@@ -338,24 +334,23 @@ export const getAllTourPhotos = async (tourId: number, userId: string): Promise<
     }
   }
 
-  // Process discussion photos
-  for (const row of discussionPhotosResult.rows) {
-    const attachments = row.attachments as Attachment[];
-    if (Array.isArray(attachments)) {
-      for (const attachment of attachments) {
-        // Only include image attachments
-        if (attachment?.url && attachment?.type === 'image') {
-          photoMetadata.push({
-            url: attachment.url, // Store original URL temporarily
-            source: 'discussion',
-            source_name: row.team_name || 'Unknown Team',
-            created_at: row.created_at,
-            created_by: row.created_by || undefined,
-            author_name: row.author_name || undefined
-          });
-          urlsToSign.push(attachment.url);
-        }
-      }
+  // Process tour photos
+  for (const row of tourPhotosResult.rows) {
+    if (row.image_url) {
+      const photoDate = new Date(row.photo_date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      photoMetadata.push({
+        url: row.image_url,
+        source: 'tour',
+        source_name: row.caption || `Daily Photo - ${photoDate}`,
+        created_at: row.created_at,
+        created_by: row.created_by || undefined,
+        author_name: row.author_name || undefined
+      });
+      urlsToSign.push(row.image_url);
     }
   }
 
