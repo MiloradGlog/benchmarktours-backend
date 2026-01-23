@@ -257,3 +257,64 @@ export const deleteAccountController = async (req: Request, res: Response): Prom
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+/**
+ * Request account deletion - Public endpoint for users to request account deletion
+ */
+export const requestAccountDeletionController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, name, reason } = req.body;
+
+    if (!email || !name) {
+      res.status(400).json({ error: 'Email and name are required' });
+      return;
+    }
+
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Look up user by email (but don't reveal if user exists)
+    const userResult = await query(`
+      SELECT id, first_name, last_name
+      FROM users
+      WHERE email = $1
+    `, [normalizedEmail]);
+
+    let userId = null;
+    let userName = name.trim();
+
+    if (userResult.rows.length > 0) {
+      const user = userResult.rows[0];
+      userId = user.id;
+      // Use the actual user name from database if found
+      userName = `${user.first_name} ${user.last_name}`;
+
+      // Check if there's already a pending deletion request
+      const existingRequest = await query(`
+        SELECT id
+        FROM account_deletion_requests
+        WHERE user_id = $1 AND status = 'pending'
+      `, [userId]);
+
+      if (existingRequest.rows.length > 0) {
+        // Don't reveal that a request already exists (security)
+        res.status(201).json({
+          message: 'Your account deletion request has been submitted. An administrator will review it shortly.'
+        });
+        return;
+      }
+    }
+
+    // Create the deletion request (even if user not found - admin can review)
+    await query(`
+      INSERT INTO account_deletion_requests (user_id, user_email, user_name, reason)
+      VALUES ($1, $2, $3, $4)
+    `, [userId, normalizedEmail, userName, reason || null]);
+
+    res.status(201).json({
+      message: 'Your account deletion request has been submitted. An administrator will review it shortly.'
+    });
+  } catch (error: any) {
+    console.error('Request account deletion error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};

@@ -6,7 +6,8 @@ import {
   changePasswordController,
   requestPasswordResetController,
   requestPasswordResetByEmailController,
-  deleteAccountController
+  deleteAccountController,
+  requestAccountDeletionController
 } from './auth.controller';
 import { authenticateToken } from '../../middleware/auth.middleware';
 
@@ -59,10 +60,25 @@ const requestPasswordResetByEmailValidation = [
     .withMessage('Please provide a valid email')
 ];
 
+const requestAccountDeletionValidation = [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email'),
+  body('name')
+    .trim()
+    .notEmpty()
+    .withMessage('Name is required'),
+  body('reason')
+    .optional()
+    .trim()
+];
+
 // Public routes
 router.post('/login', loginValidation, login);
 router.post('/setup-account', setupAccountValidation, setupAccountController);
 router.post('/forgot-password', requestPasswordResetByEmailValidation, requestPasswordResetByEmailController);
+router.post('/request-account-deletion', requestAccountDeletionValidation, requestAccountDeletionController);
 
 // Protected routes (require authentication)
 router.post('/change-password', authenticateToken, changePasswordValidation, changePasswordController);

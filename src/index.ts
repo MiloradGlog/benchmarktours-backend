@@ -19,7 +19,7 @@ import publicSurveyRoutes from './api/surveys/publicSurvey.routes';
 import questionRoutes from './api/questions/question.routes';
 import activityGeneralRoutes from './api/activities/activityGeneral.routes';
 import dashboardRoutes from './api/dashboard/dashboard.routes';
-import adminPasswordResetRoutes from './api/admin/passwordReset.routes';
+import adminRoutes from './api/admin/admin.routes';
 
 dotenv.config();
 
@@ -59,16 +59,16 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/tours', tourRoutes);
-app.use('/api', noteRoutes);
-app.use('/api', discussionRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/cleanup', cleanupRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api', noteRoutes);
+app.use('/api', discussionRoutes);
 app.use('/api', reviewRoutes);
 app.use('/api', surveyRoutes);
 app.use('/api', questionRoutes);
 app.use('/api', activityGeneralRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/admin', adminPasswordResetRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
