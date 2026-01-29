@@ -20,6 +20,7 @@ import questionRoutes from './api/questions/question.routes';
 import activityGeneralRoutes from './api/activities/activityGeneral.routes';
 import dashboardRoutes from './api/dashboard/dashboard.routes';
 import adminRoutes from './api/admin/admin.routes';
+import shoppingRoutes from './api/shopping/shopping.routes';
 
 dotenv.config();
 
@@ -63,6 +64,7 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/cleanup', cleanupRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api', shoppingRoutes);
 app.use('/api', noteRoutes);
 app.use('/api', discussionRoutes);
 app.use('/api', reviewRoutes);
