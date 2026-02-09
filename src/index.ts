@@ -21,6 +21,10 @@ import activityGeneralRoutes from './api/activities/activityGeneral.routes';
 import dashboardRoutes from './api/dashboard/dashboard.routes';
 import adminRoutes from './api/admin/admin.routes';
 import shoppingRoutes from './api/shopping/shopping.routes';
+import aiRoutes from './routes/ai';
+import tourContextRoutes from './api/tour-context/tour-context.routes';
+import { initializeAIController } from './controllers/aiController';
+import pool from './config/db';
 
 dotenv.config();
 
@@ -71,6 +75,8 @@ app.use('/api', reviewRoutes);
 app.use('/api', surveyRoutes);
 app.use('/api', questionRoutes);
 app.use('/api', activityGeneralRoutes);
+app.use('/api/tour-context', tourContextRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -91,7 +97,11 @@ const startServer = async () => {
   try {
     await connectToDatabase();
     await runMigrations();
-    
+
+    // Initialize AI controller with database pool
+    initializeAIController(pool);
+    console.log('🤖 AI Service initialized');
+
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
