@@ -564,7 +564,7 @@ USE YOUR TOOLS PROACTIVELY. Don't wait to be told - if you need information to m
       // Auto-fetch today's schedule if user is actively managing a tour
       if (context.tourInfo?.id && context.currentDate) {
         try {
-          // Extract date from currentDate (format: ISO string in JST)
+          // Extract date from currentDate (format: ISO string in UTC)
           const currentDateObj = new Date(context.currentDate);
           const today = currentDateObj.toISOString().split('T')[0];
 
@@ -615,7 +615,16 @@ USE YOUR TOOLS PROACTIVELY. Don't wait to be told - if you need information to m
       input = `
 CONTEXT:
 Timezone: ${context.timezone || 'Asia/Tokyo'} (JST, UTC+9)
-Current date/time: ${context.currentDate} JST
+Current date/time: ${new Date(context.currentDate).toLocaleString('en-US', {
+  timeZone: 'Asia/Tokyo',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false
+})} JST
 User role: ${context.userRole}
 IMPORTANT: All times mentioned by the user or in schedules are in JST timezone. When working with times, interpret and adjust them as JST.
 ${context.tourInfo ? `

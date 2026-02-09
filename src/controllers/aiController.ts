@@ -176,24 +176,9 @@ export async function chatWithAI(req: Request, res: Response) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Build context with JST time
-    const currentDateJST = new Date().toLocaleString('en-US', {
-      timeZone: 'Asia/Tokyo',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-    // Convert to ISO-like format: YYYY-MM-DDTHH:mm:ss
-    const [date, time] = currentDateJST.split(', ');
-    const [month, day, year] = date.split('/');
-    const jstISOString = `${year}-${month}-${day}T${time}`;
-
+    // Build context with current UTC time (will be converted to JST in AIService)
     const context: ChatContext = {
-      currentDate: jstISOString,
+      currentDate: new Date().toISOString(), // Send UTC time, let AIService handle JST conversion
       userRole,
       timezone: 'Asia/Tokyo'
     };
