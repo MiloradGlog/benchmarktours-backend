@@ -123,8 +123,8 @@ export const getActivitiesByDate = async (
 
   const dates = parseDateInput(dateInput);
 
-  // Build query
-  const dateConditions = dates.map((_, idx) => `DATE(a.start_time) = $${idx + 2}`).join(' OR ');
+  // Build query - compare dates in JST timezone
+  const dateConditions = dates.map((_, idx) => `DATE(a.start_time AT TIME ZONE 'Asia/Tokyo') = $${idx + 2}::date`).join(' OR ');
 
   const queryText = includeMetadata
     ? `SELECT

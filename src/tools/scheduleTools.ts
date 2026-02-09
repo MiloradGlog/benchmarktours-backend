@@ -298,7 +298,8 @@ export function viewScheduleTool(pool: Pool, tourId: number) {
         const params: any[] = [tourId];
 
         if (date) {
-          query += ` AND DATE(a.start_time) = DATE($2)`;
+          // Compare dates in JST timezone, not UTC
+          query += ` AND DATE(a.start_time AT TIME ZONE 'Asia/Tokyo') = DATE($2::date)`;
           params.push(date);
         }
 

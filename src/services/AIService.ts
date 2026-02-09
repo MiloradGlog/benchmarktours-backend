@@ -569,13 +569,15 @@ USE YOUR TOOLS PROACTIVELY. Don't wait to be told - if you need information to m
           const today = currentDateObj.toISOString().split('T')[0];
 
           // Query today's activities for this tour
+          // Get today's date in JST from the current UTC timestamp
+          const currentJSTDate = new Date(context.currentDate).toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' }); // YYYY-MM-DD format
           const activitiesResult = await this.pool.query(
             `SELECT id, title, type, start_time, end_time, location_details
              FROM activities
              WHERE tour_id = $1
-             AND DATE(start_time AT TIME ZONE 'Asia/Tokyo') = DATE($2::timestamptz AT TIME ZONE 'Asia/Tokyo')
+             AND DATE(start_time AT TIME ZONE 'Asia/Tokyo') = $2::date
              ORDER BY start_time`,
-            [context.tourInfo.id, context.currentDate]
+            [context.tourInfo.id, currentJSTDate]
           );
 
           if (activitiesResult.rows.length > 0) {
