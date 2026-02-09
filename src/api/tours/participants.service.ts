@@ -27,12 +27,12 @@ export const getAllUsers = async (): Promise<User[]> => {
   const result = await query(`
     SELECT id, email, first_name, last_name, role
     FROM users
-    WHERE role IN ('User', 'Guide')
+    WHERE role IN ('User', 'Guide', 'Admin')
     ORDER BY first_name, last_name
   `);
-  
+
   return result.rows;
-};;
+};
 
 export const getTourParticipants = async (tourId: number): Promise<TourParticipant[]> => {
   const result = await query(`
@@ -43,7 +43,7 @@ export const getTourParticipants = async (tourId: number): Promise<TourParticipa
     JOIN users u ON tp.user_id = u.id
     WHERE tp.tour_id = $1
     ORDER BY 
-      CASE WHEN u.role = 'Guide' THEN 0 ELSE 1 END,
+      CASE WHEN u.role = 'Guide' OR u.role = 'Admin' THEN 0 ELSE 1 END,
       u.first_name, u.last_name
   `, [tourId]);
   
@@ -60,7 +60,7 @@ export const getTourParticipants = async (tourId: number): Promise<TourParticipa
       role: row.role
     }
   }));
-};
+};;
 
 export const assignUserToTour = async (tourId: number, userId: string): Promise<TourParticipant> => {
   // Check if user is already assigned
