@@ -12,8 +12,9 @@ import {
 /**
  * Creates a schedule adjustment tool for the AI agent
  * @param pool Database connection pool
+ * @param tourId The tour ID (baked into the tool, not exposed to AI) - SECURITY: prevents cross-tour access
  */
-export function scheduleAdjustmentTool(pool: Pool) {
+export function scheduleAdjustmentTool(pool: Pool, tourId: number) {
   return tool(
     async ({
       activityIds,
@@ -28,16 +29,19 @@ export function scheduleAdjustmentTool(pool: Pool) {
         // Query current activities
         // Note: PostgreSQL handles timezone conversion automatically
         // effectiveFrom can be in any format (JST, UTC, ISO) - PostgreSQL will parse it correctly
+        // SECURITY: tour_id filter prevents AI from modifying activities in other tours
         const activitiesQuery = `
           SELECT a.*, t.name as tour_name
           FROM activities a
           JOIN tours t ON a.tour_id = t.id
-          WHERE a.id = ANY($1::int[])
-          AND a.start_time >= $2::timestamptz
+          WHERE a.tour_id = $1
+          AND a.id = ANY($2::int[])
+          AND a.start_time >= $3::timestamptz
           ORDER BY a.start_time
         `;
 
         const activitiesResult = await client.query(activitiesQuery, [
+          tourId,
           activityIds,
           effectiveFrom
         ]);
@@ -189,13 +193,19 @@ export function scheduleAdjustmentTool(pool: Pool) {
             await client.query('BEGIN');
 
             // Apply all the changes in a transaction
+            // SECURITY: Also verify tour_id in UPDATE to prevent race conditions
             for (const change of proposedChanges) {
-              await client.query(
+              const updateResult = await client.query(
                 `UPDATE activities
                  SET start_time = $1, end_time = $2, updated_at = NOW()
-                 WHERE id = $3`,
-                [change.newStartTime, change.newEndTime, change.activityId]
+                 WHERE id = $3 AND tour_id = $4`,
+                [change.newStartTime, change.newEndTime, change.activityId, tourId]
               );
+
+              // If no rows updated, activity doesn't belong to this tour (security violation)
+              if (updateResult.rowCount === 0) {
+                throw new Error(`Security violation: Activity ${change.activityId} does not belong to tour ${tourId}`);
+              }
             }
 
             await client.query('COMMIT');
@@ -263,10 +273,11 @@ export function scheduleAdjustmentTool(pool: Pool) {
 /**
  * Creates a tool to view the current schedule for a tour
  * @param pool Database connection pool
+ * @param tourId The tour ID (baked into the tool, not exposed to AI)
  */
-export function viewScheduleTool(pool: Pool) {
+export function viewScheduleTool(pool: Pool, tourId: number) {
   return tool(
-    async ({ tourId, date }: { tourId: number; date?: string }) => {
+    async ({ date }: { date?: string }) => {
       const client = await pool.connect();
 
       try {
@@ -335,9 +346,8 @@ export function viewScheduleTool(pool: Pool) {
     },
     {
       name: 'view_schedule',
-      description: 'View the current schedule for a tour in JST timezone, optionally filtered by date. All times returned are in Asia/Tokyo timezone (JST).',
+      description: 'View the current schedule for the active tour in JST timezone, optionally filtered by date. All times returned are in Asia/Tokyo timezone (JST). The tour context is automatically provided - do not specify a tour ID.',
       schema: z.object({
-        tourId: z.number().describe('The tour ID to view schedule for'),
         date: z.string().optional().describe('Optional date filter (YYYY-MM-DD format)')
       })
     }
@@ -347,10 +357,11 @@ export function viewScheduleTool(pool: Pool) {
 /**
  * Creates a tool to check for schedule conflicts
  * @param pool Database connection pool
+ * @param tourId The tour ID (baked into the tool, not exposed to AI)
  */
-export function checkConflictsTool(pool: Pool) {
+export function checkConflictsTool(pool: Pool, tourId: number) {
   return tool(
-    async ({ tourId }: { tourId: number }) => {
+    async () => {
       const client = await pool.connect();
 
       try {
@@ -411,10 +422,8 @@ export function checkConflictsTool(pool: Pool) {
     },
     {
       name: 'check_conflicts',
-      description: 'Check for scheduling conflicts in a tour',
-      schema: z.object({
-        tourId: z.number().describe('The tour ID to check for conflicts')
-      })
+      description: 'Check for scheduling conflicts in the active tour. The tour context is automatically provided - do not specify a tour ID.',
+      schema: z.object({})
     }
   );
 }
@@ -422,10 +431,11 @@ export function checkConflictsTool(pool: Pool) {
 /**
  * Creates a tool to get tour information
  * @param pool Database connection pool
+ * @param tourId The tour ID (baked into the tool, not exposed to AI)
  */
-export function getTourInfoTool(pool: Pool) {
+export function getTourInfoTool(pool: Pool, tourId: number) {
   return tool(
-    async ({ tourId }: { tourId: number }) => {
+    async () => {
       const client = await pool.connect();
 
       try {
@@ -482,10 +492,8 @@ export function getTourInfoTool(pool: Pool) {
     },
     {
       name: 'get_tour_info',
-      description: 'Get detailed information about a tour',
-      schema: z.object({
-        tourId: z.number().describe('The tour ID to get information for')
-      })
+      description: 'Get detailed information about the active tour. The tour context is automatically provided - do not specify a tour ID.',
+      schema: z.object({})
     }
   );
 }

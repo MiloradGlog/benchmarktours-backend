@@ -52,8 +52,9 @@ OPERATIONAL CONTEXT:
 - Tours are highly dynamic - delays from traffic, weather, and spontaneous changes are NORMAL
 - Your goal is to make schedule adjustments FAST and INTELLIGENT with minimal friction
 - Speed and autonomy are critical - users need answers in seconds, not minutes
-- **CRITICAL**: The tour ID is ALWAYS provided in the session context - NEVER ask the user for it
-- You can access tour information using your tools - tour context is automatically available
+- **CRITICAL**: The tour context is automatically provided to all tools - you cannot and should not specify tour IDs
+- All tools (view_schedule, check_conflicts, get_tour_info) automatically use the correct tour from the session
+- NEVER mention tour IDs in your responses - users don't need to know about internal IDs
 
 TOUR & ACTIVITY REFERENCES (IMPORTANT):
 - NEVER mention tour IDs or status in your responses
@@ -210,13 +211,22 @@ USE YOUR TOOLS PROACTIVELY. Don't wait to be told - if you need information to m
   }
 
   private async initializeTools() {
-    // Initialize all schedule management tools with database connection
-    const adjustScheduleTool = scheduleAdjustmentTool(this.pool);
-    const viewTool = viewScheduleTool(this.pool);
-    const tourInfoTool = getTourInfoTool(this.pool);
-    const conflictsTool = checkConflictsTool(this.pool);
+    // Tools are now created per-session to prevent tour ID manipulation
+    // This method is kept for backward compatibility but tools are empty by default
+    this.tools = [];
+  }
 
-    this.tools = [
+  /**
+   * Creates session-specific tools with the tour ID baked in
+   * This prevents the AI from being able to access other tours
+   */
+  private createSessionTools(tourId: number) {
+    const adjustScheduleTool = scheduleAdjustmentTool(this.pool, tourId);
+    const viewTool = viewScheduleTool(this.pool, tourId);
+    const tourInfoTool = getTourInfoTool(this.pool, tourId);
+    const conflictsTool = checkConflictsTool(this.pool, tourId);
+
+    return [
       adjustScheduleTool,
       viewTool,
       tourInfoTool,
@@ -340,6 +350,10 @@ USE YOUR TOOLS PROACTIVELY. Don't wait to be told - if you need information to m
       // Enhance the message with context
       const enhancedInput = await this.buildEnhancedInput(request);
 
+      // Create session-specific tools with the tour ID baked in
+      // This prevents AI from accessing other tours
+      const sessionTools = session.tourId ? this.createSessionTools(session.tourId) : [];
+
       // For now, we'll use direct model invocation with tool binding
       // This is a simpler approach that works with both providers
       const messages = [
@@ -360,15 +374,15 @@ USE YOUR TOOLS PROACTIVELY. Don't wait to be told - if you need information to m
           process.env.AI_MODEL?.includes('pro')
         ));
 
-      if (supportsFunctionCalling && this.tools.length > 0) {
+      if (supportsFunctionCalling && sessionTools.length > 0) {
         // Bind tools to the model - check if bind method exists
         if (typeof this.model.bind === 'function') {
           modelWithTools = this.model.bind({
-            tools: this.tools
+            tools: sessionTools
           });
         } else if (typeof (this.model as any).bindTools === 'function') {
           // Some models use bindTools instead of bind
-          modelWithTools = (this.model as any).bindTools(this.tools);
+          modelWithTools = (this.model as any).bindTools(sessionTools);
         } else {
           console.warn('Model does not support tool binding, proceeding without tools');
         }
@@ -392,7 +406,7 @@ USE YOUR TOOLS PROACTIVELY. Don't wait to be told - if you need information to m
         console.log('  🔧 Tool calls:', response.tool_calls.map(tc => tc.name));
 
         for (const toolCall of response.tool_calls) {
-          const tool = this.tools.find(t => t.name === toolCall.name);
+          const tool = sessionTools.find(t => t.name === toolCall.name);
           if (tool) {
             try {
               console.log(`🛠️  Executing tool: ${toolCall.name} with args:`, toolCall.args);

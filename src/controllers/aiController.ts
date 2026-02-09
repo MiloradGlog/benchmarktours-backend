@@ -46,6 +46,24 @@ export async function createChatSession(req: Request, res: Response) {
       tourIdType: typeof tourId
     });
 
+    // SECURITY: Verify user is assigned to this tour (if tourId provided)
+    if (tourId) {
+      if (!dbPool) {
+        return res.status(500).json({ error: 'Database pool not initialized' });
+      }
+
+      const participantCheck = await dbPool.query(
+        'SELECT 1 FROM tour_participants WHERE tour_id = $1 AND user_id = $2',
+        [tourId, userId]
+      );
+
+      if (participantCheck.rows.length === 0) {
+        return res.status(403).json({
+          error: 'Access denied - not assigned to this tour'
+        });
+      }
+    }
+
     const session = await aiService.createSession(userId, tourId);
     console.log('✅ Session created:', {
       sessionId: session.id,
