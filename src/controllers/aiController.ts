@@ -120,11 +120,11 @@ export async function chatWithAI(req: Request, res: Response) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    // Only admins can use the AI chat for now
-    if (userRole !== 'Admin') {
-      console.log('Access denied - User role:', userRole, 'Expected: Admin');
+    // Only guides and admins can use the AI chat
+    if (userRole !== 'Admin' && userRole !== 'Guide') {
+      console.log('Access denied - User role:', userRole, 'Expected: Admin or Guide');
       return res.status(403).json({
-        error: 'AI chat is currently available to administrators only'
+        error: 'AI chat is only available to guides'
       });
     }
 
@@ -295,10 +295,10 @@ export async function approveChanges(req: Request, res: Response) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    // Only admins can approve changes
-    if (userRole !== 'Admin') {
+    // Only guides and admins can approve changes
+    if (userRole !== 'Admin' && userRole !== 'Guide') {
       return res.status(403).json({
-        error: 'Only administrators can approve changes'
+        error: 'Only guides can approve changes'
       });
     }
 
@@ -415,10 +415,10 @@ export async function getAIStatus(req: Request, res: Response) {
   try {
     const userRole = (req as any).user?.role;
 
-    // Only admins can view AI status
-    if (userRole !== 'Admin') {
+    // Only guides and admins can view AI status
+    if (userRole !== 'Admin' && userRole !== 'Guide') {
       return res.status(403).json({
-        error: 'Only administrators can view AI status'
+        error: 'Only guides can view AI status'
       });
     }
 
