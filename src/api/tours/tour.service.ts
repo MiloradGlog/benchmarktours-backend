@@ -245,6 +245,7 @@ export interface Attachment {
 }
 
 export interface TourPhoto {
+  id?: number; // tour_photos row id - only present for source 'tour', enables deletion
   url: string;
   source: 'note' | 'tour';
   source_name: string; // Activity title, team name, or daily photo date
@@ -287,6 +288,7 @@ export const getAllTourPhotos = async (tourId: number, userId: string): Promise<
   // Get photos from tour_photos table
   const tourPhotosResult = await query(`
     SELECT
+      tp.id,
       tp.image_url,
       tp.caption,
       tp.photo_date,
@@ -302,6 +304,7 @@ export const getAllTourPhotos = async (tourId: number, userId: string): Promise<
 
   // Phase 1: Collect all photo metadata and URLs to sign
   interface PhotoMetadata {
+    id?: number;
     url: string;
     source: 'note' | 'tour';
     source_name: string;
@@ -343,6 +346,7 @@ export const getAllTourPhotos = async (tourId: number, userId: string): Promise<
         year: 'numeric'
       });
       photoMetadata.push({
+        id: row.id,
         url: row.image_url,
         source: 'tour',
         source_name: row.caption || `Daily Photo - ${photoDate}`,
