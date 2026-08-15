@@ -212,6 +212,140 @@ export const getUsersByRole = async (role: 'Admin' | 'User' | 'Guide'): Promise<
   return result.rows;
 };
 
+// ============= GDPR Data Export (Art. 20) =============
+
+export interface UserDataExport {
+  generated_at: string;
+  user: Pick<User, 'id' | 'email' | 'first_name' | 'last_name' | 'role' | 'created_at'>;
+  tours: any[];
+  chat_messages: any[];
+  notes: any[];
+  questions: any[];
+  team_suggestions: any[];
+  photos: any[];
+  ai_chat_sessions: any[];
+  reports_filed: number;
+  blocked_users: number;
+}
+
+/**
+ * Collects all personal data stored for a user across the system.
+ * Every query is scoped to the given user id.
+ */
+export const exportUserData = async (userId: string): Promise<UserDataExport | null> => {
+  const userResult = await query(`
+    SELECT id, email, first_name, last_name, role, created_at
+    FROM users
+    WHERE id = $1
+  `, [userId]);
+
+  const user = userResult.rows[0];
+  if (!user) {
+    return null;
+  }
+
+  const [
+    toursResult,
+    chatMessagesResult,
+    notesResult,
+    questionsResult,
+    teamSuggestionsResult,
+    photosResult,
+    aiSessionsResult,
+    aiMessagesResult,
+    reportsResult,
+    blocksResult
+  ] = await Promise.all([
+    query(`
+      SELECT t.id, t.name, t.start_date, t.end_date
+      FROM tours t
+      INNER JOIN tour_participants tp ON tp.tour_id = t.id
+      WHERE tp.user_id = $1
+      ORDER BY t.start_date ASC
+    `, [userId]),
+    query(`
+      SELECT d.tour_id, d.title AS discussion_title, dm.content, dm.created_at
+      FROM discussion_messages dm
+      INNER JOIN discussions d ON d.id = dm.discussion_id
+      WHERE dm.user_id = $1
+      ORDER BY dm.created_at ASC
+    `, [userId]),
+    query(`
+      SELECT n.activity_id, a.title AS activity_title, n.title, n.content,
+             n.is_private, n.tags, n.question_id, n.created_at, n.updated_at
+      FROM notes n
+      LEFT JOIN activities a ON a.id = n.activity_id
+      WHERE n.user_id = $1
+      ORDER BY n.created_at ASC
+    `, [userId]),
+    query(`
+      SELECT q.activity_id, a.title AS activity_title, q.question_text, q.created_at
+      FROM activity_questions q
+      LEFT JOIN activities a ON a.id = q.activity_id
+      WHERE q.user_id = $1
+      ORDER BY q.created_at ASC
+    `, [userId]),
+    query(`
+      SELECT text, value, created_at, tour_id
+      FROM shopping_items
+      WHERE created_by = $1
+      ORDER BY created_at ASC
+    `, [userId]),
+    query(`
+      SELECT tour_id, created_at, image_url AS url
+      FROM tour_photos
+      WHERE user_id = $1
+      ORDER BY created_at ASC
+    `, [userId]),
+    query(`
+      SELECT id, tour_id, started_at
+      FROM ai_chat_sessions
+      WHERE user_id = $1
+      ORDER BY started_at ASC
+    `, [userId]),
+    query(`
+      SELECT m.session_id, m.role, m.content, m.created_at
+      FROM ai_conversation_messages m
+      INNER JOIN ai_chat_sessions s ON s.id = m.session_id
+      WHERE s.user_id = $1 AND m.role != 'function'
+      ORDER BY m.created_at ASC
+    `, [userId]),
+    query(`
+      SELECT COUNT(*)::int AS count FROM message_reports WHERE reporter_id = $1
+    `, [userId]),
+    query(`
+      SELECT COUNT(*)::int AS count FROM user_blocks WHERE blocker_id = $1
+    `, [userId])
+  ]);
+
+  const messagesBySession: Record<string, any[]> = {};
+  aiMessagesResult.rows.forEach(row => {
+    const list = messagesBySession[row.session_id] || (messagesBySession[row.session_id] = []);
+    list.push({ role: row.role, content: row.content, created_at: row.created_at });
+  });
+
+  const aiChatSessions = aiSessionsResult.rows.map(session => ({
+    id: session.id,
+    tour_id: session.tour_id,
+    started_at: session.started_at,
+    messages: messagesBySession[session.id] || []
+  }));
+
+  return {
+    generated_at: new Date().toISOString(),
+    user,
+    tours: toursResult.rows,
+    chat_messages: chatMessagesResult.rows,
+    notes: notesResult.rows,
+    questions: questionsResult.rows,
+    team_suggestions: teamSuggestionsResult.rows,
+    photos: photosResult.rows,
+    ai_chat_sessions: aiChatSessions,
+    reports_filed: reportsResult.rows[0].count,
+    blocked_users: blocksResult.rows[0].count
+  };
+};
+
 // ============= Setup Code Management =============
 
 /**

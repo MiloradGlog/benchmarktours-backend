@@ -333,6 +333,54 @@ export async function endChatSession(req: Request, res: Response) {
 }
 
 /**
+ * Delete a chat session (GDPR erasure of personal AI chat data)
+ * DELETE /api/ai/sessions/:sessionId
+ * Admin|Guide only, and only for sessions the requester owns.
+ */
+export async function deleteChatSession(req: Request, res: Response) {
+  try {
+    const aiService = ensureAIService();
+    const { sessionId } = req.params;
+    const userId = (req as any).user?.id;
+    const userRole = (req as any).user?.role;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Only guides and admins can use the AI chat
+    if (userRole !== 'Admin' && userRole !== 'Guide') {
+      return res.status(403).json({
+        error: 'AI chat is only available to guides'
+      });
+    }
+
+    const session = await aiService.getSession(sessionId);
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Sessions are personal data - even Admins may only delete their own
+    if (session.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    await aiService.deleteSession(sessionId);
+    console.log('🗑️ AI chat session deleted:', { sessionId, userId });
+
+    return res.json({
+      success: true,
+      message: 'Session deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting chat session:', error);
+    return res.status(500).json({
+      error: 'Failed to delete session'
+    });
+  }
+}
+
+/**
  * Get user's chat sessions
  * GET /api/ai/sessions
  */

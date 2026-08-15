@@ -18,6 +18,42 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+export const exportMyData = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    const exportData = await userService.exportUserData(userId);
+
+    if (!exportData) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Log only the user id and counts - never the exported content itself
+    console.log('GDPR data export generated:', {
+      userId,
+      tours: exportData.tours.length,
+      chat_messages: exportData.chat_messages.length,
+      notes: exportData.notes.length,
+      questions: exportData.questions.length,
+      team_suggestions: exportData.team_suggestions.length,
+      photos: exportData.photos.length,
+      ai_chat_sessions: exportData.ai_chat_sessions.length
+    });
+
+    res.status(200)
+      .setHeader('Content-Disposition', 'attachment; filename="my-data-export.json"');
+    res.json(exportData);
+  } catch (error) {
+    console.error('GDPR data export error for user:', req.user?.id, error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const users = await userService.getAllUsers();

@@ -7,6 +7,7 @@ import {
   getChatHistory,
   approveChanges,
   endChatSession,
+  deleteChatSession,
   getUserSessions,
   getAIStatus
 } from '../controllers/aiController';
@@ -22,6 +23,7 @@ router.get('/sessions', getUserSessions);
 router.get('/sessions/:sessionId', getChatSession);
 router.get('/sessions/:sessionId/messages', getChatHistory);
 router.post('/sessions/:sessionId/end', endChatSession);
+router.delete('/sessions/:sessionId', deleteChatSession);
 
 // Main chat endpoint
 router.post('/chat', chatWithAI);

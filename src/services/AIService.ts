@@ -833,6 +833,14 @@ USER REQUEST: ${request.message}`;
     }
   }
 
+  async deleteSession(sessionId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      'DELETE FROM ai_chat_sessions WHERE id = $1',
+      [sessionId]
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async endSession(sessionId: string): Promise<void> {
     await this.pool.query(
       `UPDATE ai_chat_sessions
