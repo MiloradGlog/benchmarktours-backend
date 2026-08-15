@@ -74,7 +74,7 @@ export const createDiscussion = async (data: CreateDiscussionData): Promise<Disc
   return result.rows[0];
 };
 
-export const getDiscussionsByTour = async (tourId: number, userId: number): Promise<Discussion[]> => {
+export const getDiscussionsByTour = async (tourId: number, userId: string): Promise<Discussion[]> => {
   const result = await query(`
     SELECT 
       d.*,
@@ -99,7 +99,7 @@ export const getDiscussionsByTour = async (tourId: number, userId: number): Prom
   return result.rows;
 };
 
-export const getDiscussionById = async (id: number, userId: number): Promise<Discussion | null> => {
+export const getDiscussionById = async (id: number, userId: string): Promise<Discussion | null> => {
   const result = await query(`
     SELECT 
       d.*,
@@ -153,7 +153,7 @@ export const deleteDiscussion = async (id: number): Promise<boolean> => {
   await checkTourReadOnlyByDiscussionId(id);
 
   const result = await query('DELETE FROM discussions WHERE id = $1', [id]);
-  return result.rowCount > 0;
+  return (result.rowCount ?? 0) > 0;
 };
 
 // Message operations
@@ -189,7 +189,7 @@ export const createMessage = async (data: CreateMessageData): Promise<Discussion
   return result.rows[0];
 };
 
-export const getMessagesByDiscussion = async (discussionId: number, userId: number): Promise<DiscussionMessage[]> => {
+export const getMessagesByDiscussion = async (discussionId: number, userId: string): Promise<DiscussionMessage[]> => {
   const result = await query(`
     WITH RECURSIVE message_tree AS (
       -- Base case: top-level messages
@@ -240,7 +240,7 @@ export const getMessagesByDiscussion = async (discussionId: number, userId: numb
 
 export const updateMessage = async (
   id: number,
-  userId: number,
+  userId: string,
   updates: { content?: string; image_url?: string; voice_recording_url?: string }
 ): Promise<DiscussionMessage | null> => {
   const { content, image_url, voice_recording_url } = updates;
@@ -293,26 +293,46 @@ export const updateMessage = async (
   return result.rows[0] || null;
 };
 
-export const deleteMessage = async (id: number, userId: number): Promise<boolean> => {
-  // Check if the tour has ended (making it read-only)
-  const { checkTourReadOnlyByMessageId } = await import('../../utils/tourAccess');
-  await checkTourReadOnlyByMessageId(id);
-
-  // Get message first to retrieve media URLs
-  const messageResult = await query(
-    'SELECT image_url, voice_recording_url FROM discussion_messages WHERE id = $1 AND user_id = $2',
-    [id, userId]
-  );
+export const deleteMessage = async (
+  id: number,
+  actor: { id: string; role: string }
+): Promise<boolean> => {
+  // Get message (with its tour) to check authorization and retrieve media URLs.
+  // NOTE: deletion is deliberately exempt from the post-tour read-only check —
+  // users may delete their own messages at any time (GDPR), and Admins/Guides
+  // may moderate at any time. Read-only enforcement stays on other mutations.
+  const messageResult = await query(`
+    SELECT dm.user_id, dm.image_url, dm.voice_recording_url, d.tour_id
+    FROM discussion_messages dm
+    JOIN discussions d ON dm.discussion_id = d.id
+    WHERE dm.id = $1
+  `, [id]);
 
   const message = messageResult.rows[0];
+  if (!message) {
+    return false;
+  }
 
-  const result = await query(
-    'DELETE FROM discussion_messages WHERE id = $1 AND user_id = $2',
-    [id, userId]
-  );
+  const isOwnMessage = message.user_id === actor.id;
+  let canModerate = actor.role === 'Admin';
+
+  if (!canModerate && actor.role === 'Guide') {
+    // Guides may delete any message in tours they participate in
+    const membership = await query(
+      'SELECT 1 FROM tour_participants WHERE tour_id = $1 AND user_id = $2',
+      [message.tour_id, actor.id]
+    );
+    canModerate = membership.rows.length > 0;
+  }
+
+  if (!isOwnMessage && !canModerate) {
+    throw new Error('Not authorized to delete this message');
+  }
+
+  const result = await query('DELETE FROM discussion_messages WHERE id = $1', [id]);
 
   // If deletion was successful and message had media, delete from GCP
-  if (result.rowCount > 0 && message) {
+  if ((result.rowCount ?? 0) > 0) {
     if (message.image_url) {
       await fileStorageService.deleteFileByUrl(message.image_url);
     }
@@ -321,13 +341,13 @@ export const deleteMessage = async (id: number, userId: number): Promise<boolean
     }
   }
 
-  return result.rowCount > 0;
+  return (result.rowCount ?? 0) > 0;
 };
 
 // Reaction operations
 export const addReaction = async (
   messageId: number,
-  userId: number,
+  userId: string,
   reaction: string
 ): Promise<void> => {
   // Check if the tour has ended (making it read-only)
@@ -343,7 +363,7 @@ export const addReaction = async (
 
 export const removeReaction = async (
   messageId: number,
-  userId: number,
+  userId: string,
   reaction: string
 ): Promise<boolean> => {
   // Check if the tour has ended (making it read-only)
@@ -354,12 +374,12 @@ export const removeReaction = async (
     DELETE FROM message_reactions
     WHERE message_id = $1 AND user_id = $2 AND reaction = $3
   `, [messageId, userId, reaction]);
-  return result.rowCount > 0;
+  return (result.rowCount ?? 0) > 0;
 };
 
 export const getMessageReactions = async (
-  messageIds: number[], 
-  userId: number
+  messageIds: number[],
+  userId: string
 ): Promise<any[]> => {
   if (messageIds.length === 0) return [];
   
@@ -379,8 +399,8 @@ export const getMessageReactions = async (
 
 // Read status operations
 export const markDiscussionAsRead = async (
-  discussionId: number, 
-  userId: number
+  discussionId: number,
+  userId: string
 ): Promise<void> => {
   await query(`
     INSERT INTO discussion_read_status (user_id, discussion_id, last_read_at)
