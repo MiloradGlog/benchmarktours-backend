@@ -409,7 +409,7 @@ USE YOUR TOOLS PROACTIVELY. Don't wait to be told - if you need information to m
           const tool = sessionTools.find(t => t.name === toolCall.name);
           if (tool) {
             try {
-              console.log(`🛠️  Executing tool: ${toolCall.name} with args:`, toolCall.args);
+              console.log(`🛠️  Executing tool: ${toolCall.name}`);
               const toolResult = await tool.invoke(toolCall.args);
               console.log(`✅ Tool result:`, {
                 hasAppliedChanges: !!toolResult?.appliedChanges,

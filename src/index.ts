@@ -25,6 +25,7 @@ import shoppingRoutes from './api/shopping/shopping.routes';
 import aiRoutes from './routes/ai';
 import tourContextRoutes from './api/tour-context/tour-context.routes';
 import { initializeAIController } from './controllers/aiController';
+import { startRetentionSchedule } from './services/RetentionService';
 import pool from './config/db';
 
 dotenv.config();
@@ -103,6 +104,9 @@ const startServer = async () => {
     // Initialize AI controller with database pool
     initializeAIController(pool);
     console.log('🤖 AI Service initialized');
+
+    startRetentionSchedule();
+    console.log('🧹 Retention schedule started');
 
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);

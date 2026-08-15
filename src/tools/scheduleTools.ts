@@ -151,18 +151,14 @@ export function scheduleAdjustmentTool(pool: Pool, tourId: number) {
             });
           }
 
-          // Get affected participants
-          const participantsQuery = `
-            SELECT u.email, u.first_name, u.last_name
-            FROM tour_participants tp
-            JOIN users u ON tp.user_id = u.id
-            WHERE tp.tour_id = $1
-          `;
-
-          const participantsResult = await client.query(participantsQuery, [activity.tour_id]);
-          const affectedParticipants = participantsResult.rows.map(
-            p => `${p.first_name} ${p.last_name} (${p.email})`
+          // Count affected participants — never embed names/emails here: this
+          // object is persisted, returned to clients, traced to LangSmith,
+          // and fed back to the LLM.
+          const participantsResult = await client.query(
+            'SELECT COUNT(*)::int AS count FROM tour_participants WHERE tour_id = $1',
+            [activity.tour_id]
           );
+          const affectedParticipantCount: number = participantsResult.rows[0]?.count ?? 0;
 
           proposedChanges.push({
             activityId: activity.id,
@@ -172,7 +168,7 @@ export function scheduleAdjustmentTool(pool: Pool, tourId: number) {
             newStartTime,
             oldEndTime,
             newEndTime,
-            affectedParticipants
+            affectedParticipantCount
           });
         }
 

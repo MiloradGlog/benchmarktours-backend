@@ -99,7 +99,7 @@ export interface ActivityTimeChange {
   newStartTime: Date;
   oldEndTime: Date;
   newEndTime: Date;
-  affectedParticipants: string[];
+  affectedParticipantCount: number;
 }
 
 export interface ScheduleConflict {
