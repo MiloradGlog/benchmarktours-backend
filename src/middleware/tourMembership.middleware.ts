@@ -165,3 +165,57 @@ export const requireTourMembershipByActivityId = async (
     res.status(500).json({ error: 'Failed to verify tour membership' });
   }
 };
+
+/**
+ * For survey analytics routes keyed by :id (survey id). A survey is linked to
+ * a tour directly, via an activity, or is standalone. Tour/activity-linked →
+ * scope to that tour (admins bypass). Standalone (no tour) → admins only,
+ * since there is no participant set to scope to.
+ */
+export const requireTourMembershipBySurveyId = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    const surveyId = parseInt(req.params.id);
+    if (isNaN(surveyId)) {
+      res.status(400).json({ error: 'Invalid survey id' });
+      return;
+    }
+
+    const result = await query(
+      `SELECT s.tour_id, a.tour_id AS activity_tour_id
+       FROM surveys s
+       LEFT JOIN activities a ON a.id = s.activity_id
+       WHERE s.id = $1`,
+      [surveyId]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Survey not found' });
+      return;
+    }
+
+    const tourId: number | null = result.rows[0].tour_id ?? result.rows[0].activity_tour_id ?? null;
+
+    // Standalone survey: no tour to scope to → admins only.
+    if (tourId === null) {
+      if (req.user.role === 'Admin') {
+        next();
+      } else {
+        res.status(403).json({ error: 'Not authorized' });
+      }
+      return;
+    }
+
+    await checkMembership(req, res, next, tourId);
+  } catch (error) {
+    console.error('Error checking survey tour membership:', error);
+    res.status(500).json({ error: 'Failed to verify access' });
+  }
+};

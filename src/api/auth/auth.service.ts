@@ -104,7 +104,7 @@ export const loginUser = async (loginData: LoginData): Promise<AuthToken> => {
     throw new Error('JWT_SECRET is not configured');
   }
 
-  const token = jwt.sign(payload, secret, { expiresIn: '7d' });
+  const token = jwt.sign(payload, secret, { expiresIn: '7d', algorithm: 'HS256' });
 
   return {
     token,
@@ -176,7 +176,7 @@ export const setupAccount = async (email: string, setupCode: string, newPassword
     throw new Error('JWT_SECRET is not configured');
   }
 
-  const token = jwt.sign(payload, secret, { expiresIn: '7d' });
+  const token = jwt.sign(payload, secret, { expiresIn: '7d', algorithm: 'HS256' });
 
   return {
     token,

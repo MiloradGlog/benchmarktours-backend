@@ -33,6 +33,10 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust the first proxy hop (Railway's edge) so req.ip / rate-limit keys and
+// req.secure reflect the real client, not the proxy.
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet());
 
