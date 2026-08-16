@@ -220,13 +220,12 @@ export const updateNote = async (id: number, updateData: UpdateNoteData, userId:
 };;
 
 export const deleteNote = async (id: number, userId: number): Promise<boolean> => {
-  // Check if the tour has ended (making it read-only)
-  const { checkTourReadOnlyByNoteId } = await import('../../utils/tourAccess');
-  await checkTourReadOnlyByNoteId(id);
-  
+  // Erasure of one's own content (Art. 17) is allowed even after a tour goes
+  // read-only — the read-only lock only blocks edits and others' content.
+  // Ownership is enforced by the `AND user_id` filter below.
   const result = await query('DELETE FROM notes WHERE id = $1 AND user_id = $2', [id, userId]);
   return result.rowCount > 0;
-};;
+};
 
 // Get notes for a specific tour (all activities in the tour)
 export const getNotesByTour = async (tourId: number, userId?: number): Promise<Note[]> => {

@@ -366,10 +366,8 @@ export const removeReaction = async (
   userId: string,
   reaction: string
 ): Promise<boolean> => {
-  // Check if the tour has ended (making it read-only)
-  const { checkTourReadOnlyByMessageId } = await import('../../utils/tourAccess');
-  await checkTourReadOnlyByMessageId(messageId);
-
+  // Removing one's own reaction is erasure of own content (Art. 17) — allowed
+  // even after a tour goes read-only. Adding a reaction stays blocked.
   const result = await query(`
     DELETE FROM message_reactions
     WHERE message_id = $1 AND user_id = $2 AND reaction = $3
