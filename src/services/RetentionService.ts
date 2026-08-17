@@ -37,10 +37,19 @@ export const runRetentionPurge = async (): Promise<void> => {
       WHERE deleted_at < NOW() - INTERVAL '90 days'
     `);
 
+    // Resolved account-deletion requests past 90 days: the request has been
+    // actioned, so the queued email/name/reason no longer needs keeping.
+    const delRequests = await query(`
+      DELETE FROM account_deletion_requests
+      WHERE status IN ('completed', 'dismissed')
+        AND updated_at < NOW() - INTERVAL '90 days'
+    `);
+
     console.log(
       `Retention purge: ${proposals.rowCount ?? 0} stale AI proposals, ` +
       `${sessions.rowCount ?? 0} old AI sessions, ` +
-      `${audit.rowCount ?? 0} expired deletion-audit rows`
+      `${audit.rowCount ?? 0} expired deletion-audit rows, ` +
+      `${delRequests.rowCount ?? 0} resolved deletion requests`
     );
 
     await cleanupService.cleanupOldLogEntries(30);

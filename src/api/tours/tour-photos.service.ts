@@ -59,7 +59,7 @@ export const deleteTourPhoto = async (
       [userId]
     );
 
-    if (userResult.rows[0]?.role !== 'admin') {
+    if (userResult.rows[0]?.role !== 'Admin') {
       throw new Error('Permission denied');
     }
   }
