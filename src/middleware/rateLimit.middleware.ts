@@ -17,6 +17,9 @@ const isProd = process.env.NODE_ENV === 'production';
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   limit: isProd ? 10 : 100,
+  // Only failed attempts count toward the limit — a legitimate user who logs
+  // in successfully is never penalised; brute-forcing (all failures) is.
+  skipSuccessfulRequests: true,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many attempts. Please wait a few minutes and try again.' },

@@ -147,7 +147,8 @@ export const requireTourMembershipByActivityId = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const activityId = parseInt(req.params.activityId);
+    // Activity routes key the activity as :activityId or :id.
+    const activityId = parseInt(req.params.activityId ?? req.params.id);
     if (isNaN(activityId)) {
       res.status(400).json({ error: 'Invalid activity id' });
       return;
@@ -219,3 +220,48 @@ export const requireTourMembershipBySurveyId = async (
     res.status(500).json({ error: 'Failed to verify access' });
   }
 };
+
+/**
+ * Generic resolver for routes keyed by an item id that maps to a tour via one
+ * SQL lookup. `sql` must SELECT a single `tour_id` column given the id as $1.
+ */
+const membershipByItem = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+  paramName: string,
+  sql: string,
+  notFoundLabel: string
+): Promise<void> => {
+  try {
+    const id = parseInt(req.params[paramName]);
+    if (isNaN(id)) {
+      res.status(400).json({ error: `Invalid ${notFoundLabel} id` });
+      return;
+    }
+    const result = await query(sql, [id]);
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: `${notFoundLabel} not found` });
+      return;
+    }
+    await checkMembership(req, res, next, result.rows[0].tour_id);
+  } catch (error) {
+    console.error('Error checking tour membership:', error);
+    res.status(500).json({ error: 'Failed to verify tour membership' });
+  }
+};
+
+// Note (:noteId) -> activity -> tour
+export const requireTourMembershipByNoteId = (req: Request, res: Response, next: NextFunction) =>
+  membershipByItem(req, res, next, 'noteId',
+    'SELECT a.tour_id FROM notes n JOIN activities a ON a.id = n.activity_id WHERE n.id = $1', 'Note');
+
+// Review (:reviewId) -> activity -> tour
+export const requireTourMembershipByReviewId = (req: Request, res: Response, next: NextFunction) =>
+  membershipByItem(req, res, next, 'reviewId',
+    'SELECT a.tour_id FROM activity_reviews r JOIN activities a ON a.id = r.activity_id WHERE r.id = $1', 'Review');
+
+// Shopping item (:itemId) -> tour (direct)
+export const requireTourMembershipByShoppingItemId = (req: Request, res: Response, next: NextFunction) =>
+  membershipByItem(req, res, next, 'itemId',
+    'SELECT tour_id FROM shopping_items WHERE id = $1', 'Item');

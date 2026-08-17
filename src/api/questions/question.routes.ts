@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import questionService from './question.service';
 import { authenticateToken } from '../../middleware/auth.middleware';
+import { requireTourMembershipByActivityId } from '../../middleware/tourMembership.middleware';
 
 const router = express.Router();
 
@@ -9,6 +10,7 @@ const router = express.Router();
 router.post(
   '/activities/:id/questions',
   authenticateToken,
+  requireTourMembershipByActivityId,
   [
     param('id').isInt().withMessage('Activity ID must be an integer'),
     body('question_text').notEmpty().withMessage('Question text is required')
@@ -49,6 +51,7 @@ router.post(
 router.get(
   '/activities/:id/questions',
   authenticateToken,
+  requireTourMembershipByActivityId,
   [
     param('id').isInt().withMessage('Activity ID must be an integer')
   ],
@@ -80,6 +83,7 @@ router.get(
 router.get(
   '/activities/:id/questions/unanswered',
   authenticateToken,
+  requireTourMembershipByActivityId,
   [
     param('id').isInt().withMessage('Activity ID must be an integer')
   ],
