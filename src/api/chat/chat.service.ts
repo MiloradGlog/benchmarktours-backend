@@ -276,3 +276,13 @@ export const registerPushToken = async (
     DO UPDATE SET user_id = EXCLUDED.user_id, platform = EXCLUDED.platform, updated_at = NOW()
   `, [userId, token, platform || null]);
 };
+
+// Remove a device's push token (consent withdrawal / sign-out). Scoped to the
+// caller so one user can't unregister another's device.
+export const unregisterPushToken = async (userId: string, token: string): Promise<boolean> => {
+  const result = await query(
+    `DELETE FROM device_push_tokens WHERE token = $1 AND user_id = $2`,
+    [token, userId]
+  );
+  return (result.rowCount ?? 0) > 0;
+};

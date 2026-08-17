@@ -230,3 +230,20 @@ export const registerPushToken = async (req: Request, res: Response): Promise<Re
     return res.status(500).json({ error: 'Failed to register push token' });
   }
 };
+
+// DELETE /push/register — body { token }. Removes this device's token so
+// notifications stop server-side when a user revokes permission or signs out.
+export const unregisterPushToken = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const userId = req.user!.id;
+    const { token } = req.body || {};
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'Push token is required' });
+    }
+    await chatService.unregisterPushToken(userId, token);
+    return res.json({ success: true, message: 'Push token removed' });
+  } catch (error) {
+    console.error('Error unregistering push token:', error);
+    return res.status(500).json({ error: 'Failed to unregister push token' });
+  }
+};

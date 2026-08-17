@@ -24,5 +24,6 @@ router.delete('/users/:userId/block', chatController.unblockUser);
 
 // Push token registration
 router.post('/push/register', chatController.registerPushToken);
+router.delete('/push/register', chatController.unregisterPushToken);
 
 export default router;

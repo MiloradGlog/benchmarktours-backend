@@ -224,7 +224,13 @@ export interface UserDataExport {
   team_suggestions: any[];
   photos: any[];
   ai_chat_sessions: any[];
-  reports_filed: number;
+  survey_responses: any[];
+  activity_reviews: any[];
+  message_reactions: any[];
+  shopping_comments: any[];
+  shopping_votes: any[];
+  device_push_tokens: any[];
+  message_reports: any[];
   blocked_users: number;
 }
 
@@ -253,6 +259,13 @@ export const exportUserData = async (userId: string): Promise<UserDataExport | n
     photosResult,
     aiSessionsResult,
     aiMessagesResult,
+    surveyResponsesResult,
+    surveyQuestionResponsesResult,
+    reviewsResult,
+    reactionsResult,
+    shoppingCommentsResult,
+    shoppingVotesResult,
+    pushTokensResult,
     reportsResult,
     blocksResult
   ] = await Promise.all([
@@ -310,12 +323,75 @@ export const exportUserData = async (userId: string): Promise<UserDataExport | n
       WHERE s.user_id = $1 AND m.role != 'function'
       ORDER BY m.created_at ASC
     `, [userId]),
+    // survey_responses authored by the user (own answers only)
     query(`
-      SELECT COUNT(*)::int AS count FROM message_reports WHERE reporter_id = $1
+      SELECT sr.id, sr.survey_id, s.title AS survey_title,
+             sr.started_at, sr.submitted_at, sr.is_complete
+      FROM survey_responses sr
+      LEFT JOIN surveys s ON s.id = sr.survey_id
+      WHERE sr.user_id = $1
+      ORDER BY sr.started_at ASC
+    `, [userId]),
+    // survey_question_responses for the user's own responses, with question text
+    query(`
+      SELECT sqr.response_id, sqr.question_id, sq.question_text,
+             sqr.text_response, sqr.number_response, sqr.date_response,
+             sqr.selected_option_ids, sqr.rating_response, sqr.created_at
+      FROM survey_question_responses sqr
+      INNER JOIN survey_responses sr ON sr.id = sqr.response_id
+      LEFT JOIN survey_questions sq ON sq.id = sqr.question_id
+      WHERE sr.user_id = $1
+      ORDER BY sqr.response_id ASC, sqr.created_at ASC
+    `, [userId]),
+    // activity_reviews by the user
+    query(`
+      SELECT ar.activity_id, a.title AS activity_title, ar.rating, ar.review_text,
+             ar.created_at, ar.updated_at
+      FROM activity_reviews ar
+      LEFT JOIN activities a ON a.id = ar.activity_id
+      WHERE ar.user_id = $1
+      ORDER BY ar.created_at ASC
+    `, [userId]),
+    // message_reactions by the user
+    query(`
+      SELECT message_id, reaction, created_at
+      FROM message_reactions
+      WHERE user_id = $1
+      ORDER BY created_at ASC
+    `, [userId]),
+    // shopping_item_comments by the user
+    query(`
+      SELECT item_id, text, created_at
+      FROM shopping_item_comments
+      WHERE user_id = $1
+      ORDER BY created_at ASC
+    `, [userId]),
+    // shopping_item_votes by the user
+    query(`
+      SELECT item_id, vote_type, created_at
+      FROM shopping_item_votes
+      WHERE user_id = $1
+      ORDER BY created_at ASC
+    `, [userId]),
+    // device_push_tokens for the user
+    query(`
+      SELECT token, platform, updated_at
+      FROM device_push_tokens
+      WHERE user_id = $1
+      ORDER BY updated_at ASC
+    `, [userId]),
+    // message_reports filed by the user — full rows (reason + message_id), not a count
+    query(`
+      SELECT message_id, reason, created_at
+      FROM message_reports
+      WHERE reporter_id = $1
+      ORDER BY created_at ASC
     `, [userId]),
     query(`
       SELECT COUNT(*)::int AS count FROM user_blocks WHERE blocker_id = $1
     `, [userId])
+    // NOTE: discussion_read_status is intentionally SKIPPED — low-value read-position
+    // telemetry (last-read pointers), not personal content worth including in an Art.15 copy.
   ]);
 
   const messagesBySession: Record<string, any[]> = {};
@@ -331,6 +407,32 @@ export const exportUserData = async (userId: string): Promise<UserDataExport | n
     messages: messagesBySession[session.id] || []
   }));
 
+  // Nest each individual question answer under its parent survey response
+  const answersByResponse: Record<string, any[]> = {};
+  surveyQuestionResponsesResult.rows.forEach(row => {
+    const list = answersByResponse[row.response_id] || (answersByResponse[row.response_id] = []);
+    list.push({
+      question_id: row.question_id,
+      question_text: row.question_text,
+      text_response: row.text_response,
+      number_response: row.number_response,
+      date_response: row.date_response,
+      selected_option_ids: row.selected_option_ids,
+      rating_response: row.rating_response,
+      created_at: row.created_at
+    });
+  });
+
+  const surveyResponses = surveyResponsesResult.rows.map(response => ({
+    id: response.id,
+    survey_id: response.survey_id,
+    survey_title: response.survey_title,
+    started_at: response.started_at,
+    submitted_at: response.submitted_at,
+    is_complete: response.is_complete,
+    answers: answersByResponse[response.id] || []
+  }));
+
   return {
     generated_at: new Date().toISOString(),
     user,
@@ -341,7 +443,13 @@ export const exportUserData = async (userId: string): Promise<UserDataExport | n
     team_suggestions: teamSuggestionsResult.rows,
     photos: photosResult.rows,
     ai_chat_sessions: aiChatSessions,
-    reports_filed: reportsResult.rows[0].count,
+    survey_responses: surveyResponses,
+    activity_reviews: reviewsResult.rows,
+    message_reactions: reactionsResult.rows,
+    shopping_comments: shoppingCommentsResult.rows,
+    shopping_votes: shoppingVotesResult.rows,
+    device_push_tokens: pushTokensResult.rows,
+    message_reports: reportsResult.rows,
     blocked_users: blocksResult.rows[0].count
   };
 };
@@ -433,4 +541,27 @@ export const hasUserSetPassword = async (userId: string): Promise<boolean> => {
   `, [userId]);
 
   return result.rows[0]?.password_hash !== null;
+};
+// Self-service rectification of own name (Art. 16). Only first/last name; email
+// and role are not user-editable. Returns the updated safe profile.
+export const updateOwnProfile = async (
+  userId: string,
+  fields: { first_name?: string; last_name?: string }
+): Promise<any> => {
+  const sets: string[] = [];
+  const values: any[] = [];
+  let i = 1;
+  if (fields.first_name !== undefined) { sets.push(`first_name = $${i++}`); values.push(fields.first_name); }
+  if (fields.last_name !== undefined) { sets.push(`last_name = $${i++}`); values.push(fields.last_name); }
+  if (sets.length === 0) {
+    const cur = await query('SELECT id, email, first_name, last_name, role FROM users WHERE id = $1', [userId]);
+    return cur.rows[0];
+  }
+  sets.push('updated_at = NOW()');
+  values.push(userId);
+  const result = await query(
+    `UPDATE users SET ${sets.join(', ')} WHERE id = $${i} RETURNING id, email, first_name, last_name, role`,
+    values
+  );
+  return result.rows[0];
 };
