@@ -17,12 +17,14 @@ export class LangSmithService {
     this.enabled = config?.enabled !== false && process.env.LANGSMITH_ENABLED !== 'false';
     this.projectName = config?.projectName || process.env.LANGSMITH_PROJECT || 'benchmark-tours-ai';
 
-    if (this.enabled && (config?.apiKey || process.env.LANGSMITH_API_KEY)) {
+    // Accept both LANGSMITH_* and the LANGCHAIN_* names the hosted envs use
+    const apiKey = config?.apiKey || process.env.LANGSMITH_API_KEY || process.env.LANGCHAIN_API_KEY;
+    const apiUrl = config?.apiUrl || process.env.LANGSMITH_API_URL || process.env.LANGCHAIN_ENDPOINT
+      || 'https://eu.api.smith.langchain.com';
+
+    if (this.enabled && apiKey) {
       try {
-        this.client = new Client({
-          apiKey: config?.apiKey || process.env.LANGSMITH_API_KEY,
-          apiUrl: config?.apiUrl || process.env.LANGSMITH_API_URL || 'https://api.smith.langchain.com'
-        });
+        this.client = new Client({ apiKey, apiUrl });
         console.log(`LangSmith monitoring enabled for project: ${this.projectName}`);
       } catch (error) {
         console.warn('Failed to initialize LangSmith client:', error);

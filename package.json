@@ -7,6 +7,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start:prod": "ts-node --transpile-only src/index.ts",
     "migrate": "node-pg-migrate",
     "migrate:create": "node-pg-migrate create",
     "migrate:up": "node-pg-migrate up",
@@ -37,6 +38,7 @@
     "multer": "^2.0.2",
     "pg": "^8.11.3",
     "sharp": "^0.34.3",
+    "ts-node": "^10.9.2",
     "uuid": "^13.0.0",
     "zod": "^4.3.6"
   },
