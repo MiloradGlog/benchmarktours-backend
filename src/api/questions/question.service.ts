@@ -159,9 +159,8 @@ const getQuestionById = async (questionId: number): Promise<ActivityQuestion | n
 };
 
 const deleteQuestion = async (questionId: number, userId: string, deleteAnswers: boolean = false): Promise<boolean> => {
-  // Check if the tour has ended (making it read-only)
-  const { checkTourReadOnlyByQuestionId } = await import('../../utils/tourAccess');
-  await checkTourReadOnlyByQuestionId(questionId);
+  // Erasure of one's own content (Art. 17) is allowed even after a tour goes
+  // read-only. Ownership is enforced by the `AND user_id` filters below.
 
   // If deleteAnswers is true, delete related notes first
   if (deleteAnswers) {

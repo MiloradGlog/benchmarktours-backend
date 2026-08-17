@@ -1,5 +1,6 @@
 import express from 'express';
 import { authenticateToken, requireAdmin } from '../../middleware/auth.middleware';
+import { requireTourMembershipBySurveyId } from '../../middleware/tourMembership.middleware';
 import * as surveyController from './survey.controller';
 import * as publicSurveyController from './publicSurvey.controller';
 
@@ -27,10 +28,12 @@ router.post('/surveys/:id/submit', authenticateToken, surveyController.submitRes
 router.post('/surveys/:id/save-progress', authenticateToken, surveyController.saveProgress);
 router.get('/surveys/:id/my-response', authenticateToken, surveyController.getUserResponse);
 
-// Analytics routes (admin)
+// Analytics routes. Raw per-respondent identities stay admin-only. Stats and
+// the aggregated view are used by tour participants in-app, so they are scoped
+// to the survey's tour (admins bypass) — never readable across tours.
 router.get('/surveys/:id/responses', authenticateToken, requireAdmin, surveyController.getSurveyResponses);
-router.get('/surveys/:id/stats', authenticateToken, surveyController.getSurveyStats);
-router.get('/surveys/:id/aggregated-responses', authenticateToken, surveyController.getAggregatedResponses);
+router.get('/surveys/:id/stats', authenticateToken, requireTourMembershipBySurveyId, surveyController.getSurveyStats);
+router.get('/surveys/:id/aggregated-responses', authenticateToken, requireTourMembershipBySurveyId, surveyController.getAggregatedResponses);
 
 // User available surveys
 router.get('/my-surveys', authenticateToken, surveyController.getAvailableSurveys);

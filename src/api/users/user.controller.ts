@@ -18,6 +18,79 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+// PUT /users/me — self-service rectification of own name (Art. 16). Email and
+// role are intentionally NOT self-editable (email is the login identity; role
+// is an admin decision).
+export const updateMe = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+    const { first_name, last_name } = req.body || {};
+    const first = typeof first_name === 'string' ? first_name.trim() : undefined;
+    const last = typeof last_name === 'string' ? last_name.trim() : undefined;
+    if (!first && !last) {
+      res.status(400).json({ error: 'Provide first_name and/or last_name' });
+      return;
+    }
+    if ((first !== undefined && first.length === 0) || (last !== undefined && last.length === 0)) {
+      res.status(400).json({ error: 'Name fields cannot be empty' });
+      return;
+    }
+    const updated = await import('./user.service').then(m =>
+      m.updateOwnProfile(req.user!.id, { first_name: first, last_name: last })
+    );
+    res.status(200).json({ user: updated });
+  } catch (error) {
+    console.error('Update own profile error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const exportMyData = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+
+    const exportData = await userService.exportUserData(userId);
+
+    if (!exportData) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Log only the user id and counts - never the exported content itself
+    console.log('GDPR data export generated:', {
+      userId,
+      tours: exportData.tours.length,
+      chat_messages: exportData.chat_messages.length,
+      notes: exportData.notes.length,
+      questions: exportData.questions.length,
+      team_suggestions: exportData.team_suggestions.length,
+      photos: exportData.photos.length,
+      ai_chat_sessions: exportData.ai_chat_sessions.length,
+      survey_responses: exportData.survey_responses.length,
+      activity_reviews: exportData.activity_reviews.length,
+      message_reactions: exportData.message_reactions.length,
+      shopping_comments: exportData.shopping_comments.length,
+      shopping_votes: exportData.shopping_votes.length,
+      device_push_tokens: exportData.device_push_tokens.length,
+      message_reports: exportData.message_reports.length
+    });
+
+    res.status(200)
+      .setHeader('Content-Disposition', 'attachment; filename="my-data-export.json"');
+    res.json(exportData);
+  } catch (error) {
+    console.error('GDPR data export error for user:', req.user?.id, error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const users = await userService.getAllUsers();

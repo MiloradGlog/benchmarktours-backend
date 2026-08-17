@@ -86,7 +86,7 @@ export const getReviewsByActivity = async (activityId: number): Promise<Activity
   const result = await query(`
     SELECT 
       ar.id, ar.user_id, ar.activity_id, ar.rating, ar.review_text, 
-      ar.created_at, ar.updated_at, u.name as user_name
+      ar.created_at, ar.updated_at, CONCAT(u.first_name, ' ', u.last_name) as user_name
     FROM activity_reviews ar
     JOIN users u ON ar.user_id = u.id
     WHERE ar.activity_id = $1
@@ -117,7 +117,7 @@ export const getUserReviewForActivity = async (userId: string, activityId: numbe
   const result = await query(`
     SELECT 
       ar.id, ar.user_id, ar.activity_id, ar.rating, ar.review_text, 
-      ar.created_at, ar.updated_at, u.name as user_name
+      ar.created_at, ar.updated_at, CONCAT(u.first_name, ' ', u.last_name) as user_name
     FROM activity_reviews ar
     JOIN users u ON ar.user_id = u.id
     WHERE ar.user_id = $1 AND ar.activity_id = $2

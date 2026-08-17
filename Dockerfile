@@ -14,5 +14,6 @@ COPY . .
 # Expose port
 EXPOSE 3001
 
-# Default command (can be overridden in docker-compose)
-CMD ["npm", "run", "dev"]
+# Production entrypoint: transpile-only (no type-check), no file watcher.
+# Local dev overrides this in docker-compose with `npm run dev`.
+CMD ["npm", "run", "start:prod"]

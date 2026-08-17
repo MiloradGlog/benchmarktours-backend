@@ -62,8 +62,8 @@ export class CleanupService {
       const result = await query(`
         DELETE FROM file_cleanup_log
         WHERE cleaned = TRUE
-        AND cleanup_attempted_at < NOW() - INTERVAL '${daysOld} days'
-      `);
+        AND cleanup_attempted_at < NOW() - ($1 || ' days')::interval
+      `, [String(daysOld)]);
       
       console.log(`Cleaned up ${result.rowCount} old log entries`);
       return result.rowCount;

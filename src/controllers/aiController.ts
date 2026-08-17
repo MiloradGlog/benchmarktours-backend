@@ -126,21 +126,12 @@ export async function chatWithAI(req: Request, res: Response) {
     const userId = (req as any).user?.id;
     const userRole = (req as any).user?.role;
 
-    // Debug logging to understand the authentication issue
-    console.log('AI Chat Request - User:', {
-      userId,
-      userRole,
-      userObject: (req as any).user,
-      headers: req.headers.authorization ? 'Bearer token present' : 'No auth header'
-    });
-
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
     // Only guides and admins can use the AI chat
     if (userRole !== 'Admin' && userRole !== 'Guide') {
-      console.log('Access denied - User role:', userRole, 'Expected: Admin or Guide');
       return res.status(403).json({
         error: 'AI chat is only available to guides'
       });
@@ -160,19 +151,7 @@ export async function chatWithAI(req: Request, res: Response) {
       return res.status(404).json({ error: 'Session not found' });
     }
 
-    // Debug session ownership
-    console.log('Session Ownership Check:', {
-      sessionUserId: session.userId,
-      sessionUserIdType: typeof session.userId,
-      requestUserId: userId,
-      requestUserIdType: typeof userId,
-      match: session.userId === userId,
-      strictMatch: session.userId === userId,
-      stringMatch: String(session.userId) === String(userId)
-    });
-
     if (session.userId !== userId) {
-      console.log('Access denied - Session ownership mismatch!');
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -183,17 +162,8 @@ export async function chatWithAI(req: Request, res: Response) {
       timezone: 'Asia/Tokyo'
     };
 
-    // If tourId is provided, get tour info for context
-    console.log('🔍 Tour Detection Debug:', {
-      requestTourId: tourId,
-      requestTourIdType: typeof tourId,
-      sessionTourId: session.tourId,
-      sessionTourIdType: typeof session.tourId
-    });
-
     if (tourId || session.tourId) {
       const effectiveTourId = tourId || session.tourId;
-      console.log('✅ Effective Tour ID:', effectiveTourId);
 
       if (!dbPool) {
         return res.status(500).json({
@@ -207,12 +177,7 @@ export async function chatWithAI(req: Request, res: Response) {
         FROM tours
         WHERE id = $1
       `;
-      console.log('🔎 Querying for tour:', effectiveTourId);
       const tourResult = await dbPool.query(tourQuery, [effectiveTourId]);
-      console.log('📊 Tour Query Result:', {
-        rowCount: tourResult.rows.length,
-        tour: tourResult.rows[0]
-      });
 
       if (tourResult.rows.length > 0) {
         const tour = tourResult.rows[0];
@@ -363,6 +328,54 @@ export async function endChatSession(req: Request, res: Response) {
     console.error('Error ending session:', error);
     res.status(500).json({
       error: 'Failed to end session'
+    });
+  }
+}
+
+/**
+ * Delete a chat session (GDPR erasure of personal AI chat data)
+ * DELETE /api/ai/sessions/:sessionId
+ * Admin|Guide only, and only for sessions the requester owns.
+ */
+export async function deleteChatSession(req: Request, res: Response) {
+  try {
+    const aiService = ensureAIService();
+    const { sessionId } = req.params;
+    const userId = (req as any).user?.id;
+    const userRole = (req as any).user?.role;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Only guides and admins can use the AI chat
+    if (userRole !== 'Admin' && userRole !== 'Guide') {
+      return res.status(403).json({
+        error: 'AI chat is only available to guides'
+      });
+    }
+
+    const session = await aiService.getSession(sessionId);
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Sessions are personal data - even Admins may only delete their own
+    if (session.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    await aiService.deleteSession(sessionId);
+    console.log('🗑️ AI chat session deleted:', { sessionId, userId });
+
+    return res.json({
+      success: true,
+      message: 'Session deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting chat session:', error);
+    return res.status(500).json({
+      error: 'Failed to delete session'
     });
   }
 }

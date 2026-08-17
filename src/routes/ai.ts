@@ -7,6 +7,7 @@ import {
   getChatHistory,
   approveChanges,
   endChatSession,
+  deleteChatSession,
   getUserSessions,
   getAIStatus
 } from '../controllers/aiController';
@@ -22,6 +23,7 @@ router.get('/sessions', getUserSessions);
 router.get('/sessions/:sessionId', getChatSession);
 router.get('/sessions/:sessionId/messages', getChatHistory);
 router.post('/sessions/:sessionId/end', endChatSession);
+router.delete('/sessions/:sessionId', deleteChatSession);
 
 // Main chat endpoint
 router.post('/chat', chatWithAI);
@@ -31,16 +33,5 @@ router.post('/approve', approveChanges);
 
 // Status and metrics
 router.get('/status', getAIStatus);
-
-// Debug endpoint to check authentication
-router.get('/debug-auth', (req, res) => {
-  res.json({
-    authenticated: true,
-    user: req.user,
-    headers: {
-      authorization: req.headers.authorization ? 'Present' : 'Missing'
-    }
-  });
-});
 
 export default router;

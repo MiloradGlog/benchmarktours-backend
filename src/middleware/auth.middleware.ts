@@ -23,7 +23,8 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
   }
 
   try {
-    const payload = jwt.verify(token, secret) as JWTPayload;
+    // Pin the algorithm so a token can't be forced through with a weaker/none alg.
+    const payload = jwt.verify(token, secret, { algorithms: ['HS256'] }) as JWTPayload;
     req.user = {
       id: payload.id,
       email: payload.email,

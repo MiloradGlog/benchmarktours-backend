@@ -10,6 +10,7 @@ import {
   requestAccountDeletionController
 } from './auth.controller';
 import { authenticateToken } from '../../middleware/auth.middleware';
+import { authLimiter, sensitiveActionLimiter } from '../../middleware/rateLimit.middleware';
 
 const router = Router();
 
@@ -75,10 +76,10 @@ const requestAccountDeletionValidation = [
 ];
 
 // Public routes
-router.post('/login', loginValidation, login);
-router.post('/setup-account', setupAccountValidation, setupAccountController);
-router.post('/forgot-password', requestPasswordResetByEmailValidation, requestPasswordResetByEmailController);
-router.post('/request-account-deletion', requestAccountDeletionValidation, requestAccountDeletionController);
+router.post('/login', authLimiter, loginValidation, login);
+router.post('/setup-account', authLimiter, setupAccountValidation, setupAccountController);
+router.post('/forgot-password', authLimiter, requestPasswordResetByEmailValidation, requestPasswordResetByEmailController);
+router.post('/request-account-deletion', sensitiveActionLimiter, requestAccountDeletionValidation, requestAccountDeletionController);
 
 // Protected routes (require authentication)
 router.post('/change-password', authenticateToken, changePasswordValidation, changePasswordController);

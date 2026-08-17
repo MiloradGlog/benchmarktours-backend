@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import { authenticateToken, requireAdmin } from '../../middleware/auth.middleware';
-import { 
-  getMe, 
+import {
+  getMe,
+  updateMe,
+  exportMyData,
   getAllUsers, 
   getUserById, 
   createUser, 
@@ -35,6 +37,9 @@ const updateUserValidation = [
 
 // Protected routes
 router.get('/me', authenticateToken, getMe);
+router.put('/me', authenticateToken, updateMe);
+// GDPR self-service data export - must be registered before the admin '/:id' route
+router.get('/me/export', authenticateToken, exportMyData);
 router.get('/my-tours', authenticateToken, getUserToursController);
 router.get('/my-tours/:tourId', authenticateToken, getUserTourByIdController);
 router.get('/my-tours/:tourId/activities', authenticateToken, getUserTourActivitiesController);

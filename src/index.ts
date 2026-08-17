@@ -11,11 +11,13 @@ import companyRoutes from './api/companies/company.routes';
 import tourRoutes from './api/tours/tour.routes';
 import noteRoutes from './api/notes/note.routes';
 import discussionRoutes from './api/discussions/discussion.routes';
+import chatRoutes from './api/chat/chat.routes';
 import uploadRoutes from './api/uploads/upload.routes';
 import cleanupRoutes from './api/cleanup/cleanup.routes';
 import reviewRoutes from './api/reviews/review.routes';
 import surveyRoutes from './api/surveys/survey.routes';
 import publicSurveyRoutes from './api/surveys/publicSurvey.routes';
+import publicSurveyErasureRoutes from './api/surveys/publicSurveyErasure.routes';
 import questionRoutes from './api/questions/question.routes';
 import activityGeneralRoutes from './api/activities/activityGeneral.routes';
 import dashboardRoutes from './api/dashboard/dashboard.routes';
@@ -23,13 +25,19 @@ import adminRoutes from './api/admin/admin.routes';
 import shoppingRoutes from './api/shopping/shopping.routes';
 import aiRoutes from './routes/ai';
 import tourContextRoutes from './api/tour-context/tour-context.routes';
+import moderationRoutes from './api/moderation/moderation.routes';
 import { initializeAIController } from './controllers/aiController';
+import { startRetentionSchedule } from './services/RetentionService';
 import pool from './config/db';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Trust the first proxy hop (Railway's edge) so req.ip / rate-limit keys and
+// req.secure reflect the real client, not the proxy.
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(helmet());
@@ -68,14 +76,17 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/cleanup', cleanupRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api', publicSurveyErasureRoutes);
 app.use('/api', shoppingRoutes);
 app.use('/api', noteRoutes);
 app.use('/api', discussionRoutes);
+app.use('/api', chatRoutes);
 app.use('/api', reviewRoutes);
 app.use('/api', surveyRoutes);
 app.use('/api', questionRoutes);
 app.use('/api', activityGeneralRoutes);
 app.use('/api/tour-context', tourContextRoutes);
+app.use('/api', moderationRoutes);
 app.use('/api/ai', aiRoutes);
 
 // 404 handler
@@ -101,6 +112,9 @@ const startServer = async () => {
     // Initialize AI controller with database pool
     initializeAIController(pool);
     console.log('🤖 AI Service initialized');
+
+    startRetentionSchedule();
+    console.log('🧹 Retention schedule started');
 
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);

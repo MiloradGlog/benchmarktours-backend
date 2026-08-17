@@ -212,6 +212,248 @@ export const getUsersByRole = async (role: 'Admin' | 'User' | 'Guide'): Promise<
   return result.rows;
 };
 
+// ============= GDPR Data Export (Art. 20) =============
+
+export interface UserDataExport {
+  generated_at: string;
+  user: Pick<User, 'id' | 'email' | 'first_name' | 'last_name' | 'role' | 'created_at'>;
+  tours: any[];
+  chat_messages: any[];
+  notes: any[];
+  questions: any[];
+  team_suggestions: any[];
+  photos: any[];
+  ai_chat_sessions: any[];
+  survey_responses: any[];
+  activity_reviews: any[];
+  message_reactions: any[];
+  shopping_comments: any[];
+  shopping_votes: any[];
+  device_push_tokens: any[];
+  message_reports: any[];
+  blocked_users: number;
+}
+
+/**
+ * Collects all personal data stored for a user across the system.
+ * Every query is scoped to the given user id.
+ */
+export const exportUserData = async (userId: string): Promise<UserDataExport | null> => {
+  const userResult = await query(`
+    SELECT id, email, first_name, last_name, role, created_at
+    FROM users
+    WHERE id = $1
+  `, [userId]);
+
+  const user = userResult.rows[0];
+  if (!user) {
+    return null;
+  }
+
+  const [
+    toursResult,
+    chatMessagesResult,
+    notesResult,
+    questionsResult,
+    teamSuggestionsResult,
+    photosResult,
+    aiSessionsResult,
+    aiMessagesResult,
+    surveyResponsesResult,
+    surveyQuestionResponsesResult,
+    reviewsResult,
+    reactionsResult,
+    shoppingCommentsResult,
+    shoppingVotesResult,
+    pushTokensResult,
+    reportsResult,
+    blocksResult
+  ] = await Promise.all([
+    query(`
+      SELECT t.id, t.name, t.start_date, t.end_date
+      FROM tours t
+      INNER JOIN tour_participants tp ON tp.tour_id = t.id
+      WHERE tp.user_id = $1
+      ORDER BY t.start_date ASC
+    `, [userId]),
+    query(`
+      SELECT d.tour_id, d.title AS discussion_title, dm.content, dm.created_at
+      FROM discussion_messages dm
+      INNER JOIN discussions d ON d.id = dm.discussion_id
+      WHERE dm.user_id = $1
+      ORDER BY dm.created_at ASC
+    `, [userId]),
+    query(`
+      SELECT n.activity_id, a.title AS activity_title, n.title, n.content,
+             n.is_private, n.tags, n.question_id, n.created_at, n.updated_at
+      FROM notes n
+      LEFT JOIN activities a ON a.id = n.activity_id
+      WHERE n.user_id = $1
+      ORDER BY n.created_at ASC
+    `, [userId]),
+    query(`
+      SELECT q.activity_id, a.title AS activity_title, q.question_text, q.created_at
+      FROM activity_questions q
+      LEFT JOIN activities a ON a.id = q.activity_id
+      WHERE q.user_id = $1
+      ORDER BY q.created_at ASC
+    `, [userId]),
+    query(`
+      SELECT text, value, created_at, tour_id
+      FROM shopping_items
+      WHERE created_by = $1
+      ORDER BY created_at ASC
+    `, [userId]),
+    query(`
+      SELECT tour_id, created_at, image_url AS url
+      FROM tour_photos
+      WHERE user_id = $1
+      ORDER BY created_at ASC
+    `, [userId]),
+    query(`
+      SELECT id, tour_id, started_at
+      FROM ai_chat_sessions
+      WHERE user_id = $1
+      ORDER BY started_at ASC
+    `, [userId]),
+    query(`
+      SELECT m.session_id, m.role, m.content, m.created_at
+      FROM ai_conversation_messages m
+      INNER JOIN ai_chat_sessions s ON s.id = m.session_id
+      WHERE s.user_id = $1 AND m.role != 'function'
+      ORDER BY m.created_at ASC
+    `, [userId]),
+    // survey_responses authored by the user (own answers only)
+    query(`
+      SELECT sr.id, sr.survey_id, s.title AS survey_title,
+             sr.started_at, sr.submitted_at, sr.is_complete
+      FROM survey_responses sr
+      LEFT JOIN surveys s ON s.id = sr.survey_id
+      WHERE sr.user_id = $1
+      ORDER BY sr.started_at ASC
+    `, [userId]),
+    // survey_question_responses for the user's own responses, with question text
+    query(`
+      SELECT sqr.response_id, sqr.question_id, sq.question_text,
+             sqr.text_response, sqr.number_response, sqr.date_response,
+             sqr.selected_option_ids, sqr.rating_response, sqr.created_at
+      FROM survey_question_responses sqr
+      INNER JOIN survey_responses sr ON sr.id = sqr.response_id
+      LEFT JOIN survey_questions sq ON sq.id = sqr.question_id
+      WHERE sr.user_id = $1
+      ORDER BY sqr.response_id ASC, sqr.created_at ASC
+    `, [userId]),
+    // activity_reviews by the user
+    query(`
+      SELECT ar.activity_id, a.title AS activity_title, ar.rating, ar.review_text,
+             ar.created_at, ar.updated_at
+      FROM activity_reviews ar
+      LEFT JOIN activities a ON a.id = ar.activity_id
+      WHERE ar.user_id = $1
+      ORDER BY ar.created_at ASC
+    `, [userId]),
+    // message_reactions by the user
+    query(`
+      SELECT message_id, reaction, created_at
+      FROM message_reactions
+      WHERE user_id = $1
+      ORDER BY created_at ASC
+    `, [userId]),
+    // shopping_item_comments by the user
+    query(`
+      SELECT item_id, text, created_at
+      FROM shopping_item_comments
+      WHERE user_id = $1
+      ORDER BY created_at ASC
+    `, [userId]),
+    // shopping_item_votes by the user
+    query(`
+      SELECT item_id, vote_type, created_at
+      FROM shopping_item_votes
+      WHERE user_id = $1
+      ORDER BY created_at ASC
+    `, [userId]),
+    // device_push_tokens for the user
+    query(`
+      SELECT token, platform, updated_at
+      FROM device_push_tokens
+      WHERE user_id = $1
+      ORDER BY updated_at ASC
+    `, [userId]),
+    // message_reports filed by the user — full rows (reason + message_id), not a count
+    query(`
+      SELECT message_id, reason, created_at
+      FROM message_reports
+      WHERE reporter_id = $1
+      ORDER BY created_at ASC
+    `, [userId]),
+    query(`
+      SELECT COUNT(*)::int AS count FROM user_blocks WHERE blocker_id = $1
+    `, [userId])
+    // NOTE: discussion_read_status is intentionally SKIPPED — low-value read-position
+    // telemetry (last-read pointers), not personal content worth including in an Art.15 copy.
+  ]);
+
+  const messagesBySession: Record<string, any[]> = {};
+  aiMessagesResult.rows.forEach(row => {
+    const list = messagesBySession[row.session_id] || (messagesBySession[row.session_id] = []);
+    list.push({ role: row.role, content: row.content, created_at: row.created_at });
+  });
+
+  const aiChatSessions = aiSessionsResult.rows.map(session => ({
+    id: session.id,
+    tour_id: session.tour_id,
+    started_at: session.started_at,
+    messages: messagesBySession[session.id] || []
+  }));
+
+  // Nest each individual question answer under its parent survey response
+  const answersByResponse: Record<string, any[]> = {};
+  surveyQuestionResponsesResult.rows.forEach(row => {
+    const list = answersByResponse[row.response_id] || (answersByResponse[row.response_id] = []);
+    list.push({
+      question_id: row.question_id,
+      question_text: row.question_text,
+      text_response: row.text_response,
+      number_response: row.number_response,
+      date_response: row.date_response,
+      selected_option_ids: row.selected_option_ids,
+      rating_response: row.rating_response,
+      created_at: row.created_at
+    });
+  });
+
+  const surveyResponses = surveyResponsesResult.rows.map(response => ({
+    id: response.id,
+    survey_id: response.survey_id,
+    survey_title: response.survey_title,
+    started_at: response.started_at,
+    submitted_at: response.submitted_at,
+    is_complete: response.is_complete,
+    answers: answersByResponse[response.id] || []
+  }));
+
+  return {
+    generated_at: new Date().toISOString(),
+    user,
+    tours: toursResult.rows,
+    chat_messages: chatMessagesResult.rows,
+    notes: notesResult.rows,
+    questions: questionsResult.rows,
+    team_suggestions: teamSuggestionsResult.rows,
+    photos: photosResult.rows,
+    ai_chat_sessions: aiChatSessions,
+    survey_responses: surveyResponses,
+    activity_reviews: reviewsResult.rows,
+    message_reactions: reactionsResult.rows,
+    shopping_comments: shoppingCommentsResult.rows,
+    shopping_votes: shoppingVotesResult.rows,
+    device_push_tokens: pushTokensResult.rows,
+    message_reports: reportsResult.rows,
+    blocked_users: blocksResult.rows[0].count
+  };
+};
+
 // ============= Setup Code Management =============
 
 /**
@@ -299,4 +541,27 @@ export const hasUserSetPassword = async (userId: string): Promise<boolean> => {
   `, [userId]);
 
   return result.rows[0]?.password_hash !== null;
+};
+// Self-service rectification of own name (Art. 16). Only first/last name; email
+// and role are not user-editable. Returns the updated safe profile.
+export const updateOwnProfile = async (
+  userId: string,
+  fields: { first_name?: string; last_name?: string }
+): Promise<any> => {
+  const sets: string[] = [];
+  const values: any[] = [];
+  let i = 1;
+  if (fields.first_name !== undefined) { sets.push(`first_name = $${i++}`); values.push(fields.first_name); }
+  if (fields.last_name !== undefined) { sets.push(`last_name = $${i++}`); values.push(fields.last_name); }
+  if (sets.length === 0) {
+    const cur = await query('SELECT id, email, first_name, last_name, role FROM users WHERE id = $1', [userId]);
+    return cur.rows[0];
+  }
+  sets.push('updated_at = NOW()');
+  values.push(userId);
+  const result = await query(
+    `UPDATE users SET ${sets.join(', ')} WHERE id = $${i} RETURNING id, email, first_name, last_name, role`,
+    values
+  );
+  return result.rows[0];
 };
