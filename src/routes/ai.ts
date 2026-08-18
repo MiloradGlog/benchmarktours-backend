@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken, requireAdmin } from '../middleware/auth.middleware';
+import { authenticateToken, requireGuideOrHigher } from '../middleware/auth.middleware';
 import {
   createChatSession,
   getChatSession,
@@ -14,10 +14,10 @@ import {
 
 const router = Router();
 
-// Apply authentication to all routes, but check admin per-route for debugging
-router.use(authenticateToken);
+// The AI scheduling assistant is Guide/Admin only
+router.use(authenticateToken, requireGuideOrHigher);
 
-// Chat session management - temporarily removed requireAdmin for debugging
+// Chat session management
 router.post('/sessions', createChatSession);
 router.get('/sessions', getUserSessions);
 router.get('/sessions/:sessionId', getChatSession);
