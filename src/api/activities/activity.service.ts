@@ -14,6 +14,7 @@ export interface Activity {
   start_time: Date;
   end_time: Date;
   location_details?: string;
+  website?: string;
   survey_url?: string;
   image_url?: string;
   linked_activity_id?: number; // For linking discussions to other activities
@@ -33,6 +34,7 @@ export interface CreateActivityData {
   start_time: Date;
   end_time: Date;
   location_details?: string;
+  website?: string;
   survey_url?: string;
   image_url?: string;
   linked_activity_id?: number;
@@ -46,19 +48,20 @@ export interface UpdateActivityData {
   start_time?: Date;
   end_time?: Date;
   location_details?: string;
+  website?: string;
   survey_url?: string;
   image_url?: string;
   linked_activity_id?: number;
 }
 
 export const createActivity = async (activityData: CreateActivityData): Promise<Activity> => {
-  const { tour_id, company_id, type, title, description, start_time, end_time, location_details, survey_url, image_url, linked_activity_id } = activityData;
+  const { tour_id, company_id, type, title, description, start_time, end_time, location_details, website, survey_url, image_url, linked_activity_id } = activityData;
 
   const result = await query(`
-    INSERT INTO activities (tour_id, company_id, type, title, description, start_time, end_time, location_details, survey_url, image_url, linked_activity_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-    RETURNING id, tour_id, company_id, type, title, description, start_time, end_time, location_details, survey_url, image_url, linked_activity_id, created_at, updated_at
-  `, [tour_id, company_id || null, type, title, description || null, start_time, end_time, location_details || null, survey_url || null, image_url || null, linked_activity_id || null]);
+    INSERT INTO activities (tour_id, company_id, type, title, description, start_time, end_time, location_details, website, survey_url, image_url, linked_activity_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    RETURNING id, tour_id, company_id, type, title, description, start_time, end_time, location_details, website, survey_url, image_url, linked_activity_id, created_at, updated_at
+  `, [tour_id, company_id || null, type, title, description || null, start_time, end_time, location_details || null, website || null, survey_url || null, image_url || null, linked_activity_id || null]);
 
   return result.rows[0];
 };
@@ -67,7 +70,7 @@ export const getAllActivities = async (): Promise<Activity[]> => {
   const result = await query(`
     SELECT
       a.id, a.tour_id, a.company_id, a.type, a.title, a.description,
-      a.start_time, a.end_time, a.location_details, a.survey_url, a.image_url, a.linked_activity_id, a.created_at, a.updated_at,
+      a.start_time, a.end_time, a.location_details, a.website, a.survey_url, a.image_url, a.linked_activity_id, a.created_at, a.updated_at,
       c.name as company_name,
       COALESCE(AVG(ar.rating), 0)::numeric(3,2) as average_rating,
       COUNT(ar.id)::integer as total_reviews
@@ -92,7 +95,7 @@ export const getActivitiesByTour = async (tourId: number): Promise<Activity[]> =
   const result = await query(`
     SELECT
       a.id, a.tour_id, a.company_id, a.type, a.title, a.description,
-      a.start_time, a.end_time, a.location_details, a.survey_url, a.image_url, a.linked_activity_id, a.created_at, a.updated_at,
+      a.start_time, a.end_time, a.location_details, a.website, a.survey_url, a.image_url, a.linked_activity_id, a.created_at, a.updated_at,
       c.name as company_name,
       COALESCE(AVG(ar.rating), 0)::numeric(3,2) as average_rating,
       COUNT(ar.id)::integer as total_reviews
@@ -118,7 +121,7 @@ export const getActivityById = async (id: number): Promise<Activity | null> => {
   const result = await query(`
     SELECT
       a.id, a.tour_id, a.company_id, a.type, a.title, a.description,
-      a.start_time, a.end_time, a.location_details, a.survey_url, a.image_url, a.linked_activity_id, a.created_at, a.updated_at,
+      a.start_time, a.end_time, a.location_details, a.website, a.survey_url, a.image_url, a.linked_activity_id, a.created_at, a.updated_at,
       c.name as company_name,
       COALESCE(AVG(ar.rating), 0)::numeric(3,2) as average_rating,
       COUNT(ar.id)::integer as total_reviews
@@ -143,7 +146,7 @@ export const getActivityById = async (id: number): Promise<Activity | null> => {
 };
 
 export const updateActivity = async (id: number, updateData: UpdateActivityData): Promise<Activity | null> => {
-  const { company_id, type, title, description, start_time, end_time, location_details, survey_url, image_url, linked_activity_id } = updateData;
+  const { company_id, type, title, description, start_time, end_time, location_details, website, survey_url, image_url, linked_activity_id } = updateData;
 
   // Get current activity to check if we need to delete old image
   let oldImageUrl: string | null = null;
@@ -164,13 +167,14 @@ export const updateActivity = async (id: number, updateData: UpdateActivityData)
       start_time = COALESCE($6, start_time),
       end_time = COALESCE($7, end_time),
       location_details = COALESCE($8, location_details),
-      survey_url = COALESCE($9, survey_url),
-      image_url = COALESCE($10, image_url),
-      linked_activity_id = COALESCE($11, linked_activity_id),
+      website = COALESCE($9, website),
+      survey_url = COALESCE($10, survey_url),
+      image_url = COALESCE($11, image_url),
+      linked_activity_id = COALESCE($12, linked_activity_id),
       updated_at = NOW()
     WHERE id = $1
-    RETURNING id, tour_id, company_id, type, title, description, start_time, end_time, location_details, survey_url, image_url, linked_activity_id, created_at, updated_at
-  `, [id, company_id, type, title, description, start_time, end_time, location_details, survey_url, image_url, linked_activity_id]);
+    RETURNING id, tour_id, company_id, type, title, description, start_time, end_time, location_details, website, survey_url, image_url, linked_activity_id, created_at, updated_at
+  `, [id, company_id, type, title, description, start_time, end_time, location_details, website, survey_url, image_url, linked_activity_id]);
   
   // If update was successful and we have an old image to delete
   if (result.rows[0] && oldImageUrl) {

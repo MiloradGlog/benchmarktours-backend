@@ -193,6 +193,32 @@ export const createChatMessage = async (
 /**
  * Mark the tour chat as read for a user (read watermark).
  */
+/**
+ * Unread message count for the tour chat: messages newer than the caller's
+ * last_read_at, excluding their own and those from users they blocked.
+ * Returns 0 when the chat doesn't exist yet (nothing was ever sent).
+ */
+export const getTourChatUnreadCount = async (tourId: number, userId: string): Promise<number> => {
+  const discussion = await getTourChatDiscussion(tourId);
+  if (!discussion) {
+    return 0;
+  }
+
+  const result = await query(`
+    SELECT COUNT(*)::int AS unread
+    FROM discussion_messages dm
+    WHERE dm.discussion_id = $1
+      AND dm.user_id != $2
+      AND dm.user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = $2)
+      AND dm.created_at > COALESCE(
+        (SELECT last_read_at FROM discussion_read_status WHERE discussion_id = $1 AND user_id = $2),
+        '-infinity'::timestamptz
+      )
+  `, [discussion.id, userId]);
+
+  return result.rows[0].unread;
+};
+
 export const markTourChatRead = async (tourId: number, userId: string): Promise<boolean> => {
   const discussion = await getTourChatDiscussion(tourId);
   if (!discussion) {

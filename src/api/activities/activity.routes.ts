@@ -48,6 +48,11 @@ const createActivityValidation = [
     .trim()
     .isLength({ max: 500 })
     .withMessage('Location details must be less than 500 characters'),
+  body('website')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Website must be less than 500 characters'),
   body('linked_activity_id')
     .optional()
     .isInt({ min: 1 })
@@ -88,6 +93,11 @@ const updateActivityValidation = [
     .trim()
     .isLength({ max: 500 })
     .withMessage('Location details must be less than 500 characters'),
+  body('website')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Website must be less than 500 characters'),
   body('linked_activity_id')
     .optional()
     .isInt({ min: 1 })

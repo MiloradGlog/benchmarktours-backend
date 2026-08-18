@@ -15,6 +15,7 @@ router.use(authenticateToken);
 router.get('/tours/:tourId/chat', requireTourMembership, chatController.getTourChat);
 router.get('/tours/:tourId/chat/messages', requireTourMembership, chatController.getChatMessages);
 router.post('/tours/:tourId/chat/messages', requireTourMembership, chatController.sendChatMessage);
+router.get('/tours/:tourId/chat/unread', requireTourMembership, chatController.getChatUnreadCount);
 router.post('/tours/:tourId/chat/read', requireTourMembership, chatController.markChatRead);
 
 // Moderation routes
