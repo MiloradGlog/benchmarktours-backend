@@ -113,6 +113,20 @@ export const sendChatMessage = async (req: Request, res: Response): Promise<Resp
 };
 
 // POST /tours/:tourId/chat/read — read watermark
+// GET /tours/:tourId/chat/unread
+export const getChatUnreadCount = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const tourId = parseInt(req.params.tourId);
+    const userId = req.user!.id;
+
+    const unread = await chatService.getTourChatUnreadCount(tourId, userId);
+    return res.json({ unread });
+  } catch (error) {
+    console.error('Error fetching chat unread count:', error);
+    return res.status(500).json({ error: 'Failed to fetch unread count' });
+  }
+};
+
 export const markChatRead = async (req: Request, res: Response): Promise<Response> => {
   try {
     const tourId = parseInt(req.params.tourId);
