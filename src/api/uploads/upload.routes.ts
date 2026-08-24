@@ -25,6 +25,8 @@ const upload = multer({
       'image/png',
       'image/webp',
       'image/gif',
+      'image/heic',     // iPhone default photo format; converted to JPEG before storage
+      'image/heif',
       'audio/mpeg',
       'audio/wav',
       'audio/m4a',

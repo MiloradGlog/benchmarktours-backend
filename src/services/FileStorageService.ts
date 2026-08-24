@@ -1,5 +1,6 @@
 import { Storage, Bucket } from '@google-cloud/storage';
 import sharp from 'sharp';
+import convertHeic from 'heic-convert';
 import { randomUUID } from 'crypto';
 
 export interface UploadOptions {
@@ -48,14 +49,22 @@ export class FileStorageService {
   async uploadFile(buffer: Buffer, options: UploadOptions): Promise<UploadResult> {
     const timestamp = Date.now();
     const uuid = randomUUID();
-    const filename = options.filename || `${timestamp}_${uuid}`;
-    const filepath = `${options.folder}/${filename}`;
-
+    let filename = options.filename || `${timestamp}_${uuid}`;
     let processedBuffer = buffer;
+
+    // HEIC/HEIF (iPhone photos) can't be decoded by sharp's prebuilt binaries
+    // and won't display on Android/web, so convert to JPEG before storing.
+    // Detection is by magic bytes, not extension, to catch mislabeled files.
+    if (this.isHeicBuffer(buffer)) {
+      processedBuffer = await this.convertHeicToJpeg(buffer);
+      filename = filename.replace(/\.(heic|heif)$/i, '') + '.jpg';
+    }
+
+    const filepath = `${options.folder}/${filename}`;
 
     // Process image if resize options are provided
     if (options.resize && this.isImageFile(filename)) {
-      processedBuffer = await this.processImage(buffer, options.resize);
+      processedBuffer = await this.processImage(processedBuffer, options.resize);
     }
 
     // Create file reference
@@ -249,6 +258,22 @@ export class FileStorageService {
     }
 
     return await image.toBuffer();
+  }
+
+  /**
+   * Detect HEIC/HEIF content by the ISO BMFF 'ftyp' box brand,
+   * so files mislabeled with a .jpg extension are still caught.
+   */
+  private isHeicBuffer(buffer: Buffer): boolean {
+    if (buffer.length < 12) return false;
+    if (buffer.toString('ascii', 4, 8) !== 'ftyp') return false;
+    const brand = buffer.toString('ascii', 8, 12);
+    return ['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1'].includes(brand);
+  }
+
+  private async convertHeicToJpeg(buffer: Buffer): Promise<Buffer> {
+    const output = await convertHeic({ buffer, format: 'JPEG', quality: 0.9 });
+    return Buffer.from(output);
   }
 
   private isImageFile(filename: string): boolean {
