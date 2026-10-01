@@ -81,7 +81,7 @@ export const completePasswordResetRequest = async (
 
   // Generate new setup code
   const setupCode = generateSetupCode();
-  const expiresAt = getSetupCodeExpiration(7);
+  const expiresAt = getSetupCodeExpiration();
 
   // Insert setup code
   await query(`
@@ -155,7 +155,7 @@ export const regenerateSetupCode = async (userId: string): Promise<{ setup_code:
 
   // Generate new setup code
   const setupCode = generateSetupCode();
-  const expiresAt = getSetupCodeExpiration(7);
+  const expiresAt = getSetupCodeExpiration();
 
   // Insert setup code
   await query(`
