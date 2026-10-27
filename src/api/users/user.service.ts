@@ -461,7 +461,7 @@ export const exportUserData = async (userId: string): Promise<UserDataExport | n
  */
 export const createSetupCode = async (userId: string): Promise<string> => {
   const setupCode = generateSetupCode();
-  const expiresAt = getSetupCodeExpiration(7); // 7 days validity
+  const expiresAt = getSetupCodeExpiration();
 
   await query(`
     INSERT INTO user_setup_codes (user_id, setup_code, expires_at)

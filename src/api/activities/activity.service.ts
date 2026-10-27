@@ -1,7 +1,7 @@
 import { query } from '../../config/db';
 import { fileStorageService } from '../../services/FileStorageService';
 
-export type ActivityType = 'CompanyVisit' | 'Hotel' | 'Restaurant' | 'Travel' | 'Discussion';
+export type ActivityType = 'CompanyVisit' | 'Hotel' | 'Restaurant' | 'Leisure' | 'Travel' | 'Discussion';
 
 export interface Activity {
   id: number;

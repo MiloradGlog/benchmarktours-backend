@@ -173,7 +173,7 @@ export interface Activity {
   id: number;
   tour_id: number;
   company_id?: number;
-  type: 'CompanyVisit' | 'Hotel' | 'Restaurant' | 'Travel' | 'Other';
+  type: 'CompanyVisit' | 'Hotel' | 'Restaurant' | 'Leisure' | 'Travel' | 'Discussion' | 'Other';
   name: string;
   description?: string;
   location?: string;

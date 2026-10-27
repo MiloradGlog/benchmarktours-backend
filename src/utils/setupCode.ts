@@ -61,13 +61,30 @@ export function isValidSetupCodeFormat(code: string): boolean {
 }
 
 /**
- * Calculates expiration date for setup codes
- * Default: 7 days from now
+ * How long a setup code stays valid, in days.
  *
- * @param daysValid - Number of days the code should be valid (default: 7)
+ * Participants are normally given their code well before the tour departs —
+ * often a month ahead, when the itinerary is sent out — so a short window meant
+ * codes expired before anyone got round to using them.
+ *
+ * A longer window is safe here because a code is single-use (`used_at`), bound
+ * to one email address, drawn from a 31^8 (~8.5x10^11) keyspace, and redeemed
+ * through a rate-limited endpoint (10 failed attempts per 15 minutes in
+ * production). Guessing one inside 30 days is not a realistic attack.
+ *
+ * This is the single source of truth — the admin UI quotes it in the text it
+ * shows alongside a generated code, so update those strings if you change it.
+ */
+export const SETUP_CODE_VALID_DAYS = 30;
+
+/**
+ * Calculates expiration date for setup codes
+ *
+ * @param daysValid - Number of days the code should be valid
+ *                    (defaults to SETUP_CODE_VALID_DAYS)
  * @returns Expiration date
  */
-export function getSetupCodeExpiration(daysValid: number = 7): Date {
+export function getSetupCodeExpiration(daysValid: number = SETUP_CODE_VALID_DAYS): Date {
   const expirationDate = new Date();
   expirationDate.setDate(expirationDate.getDate() + daysValid);
   return expirationDate;

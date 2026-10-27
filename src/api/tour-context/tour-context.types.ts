@@ -16,6 +16,7 @@ export type ActivityType =
   | 'CompanyVisit'
   | 'Hotel'
   | 'Restaurant'
+  | 'Leisure'
   | 'Travel'
   | 'Discussion';
 

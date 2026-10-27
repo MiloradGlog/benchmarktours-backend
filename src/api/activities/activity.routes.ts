@@ -14,8 +14,8 @@ const router = Router({ mergeParams: true }); // To access parent route params (
 // Validation middleware
 const createActivityValidation = [
   body('type')
-    .isIn(['CompanyVisit', 'Hotel', 'Restaurant', 'Travel', 'Discussion'])
-    .withMessage('Type must be one of: CompanyVisit, Hotel, Restaurant, Travel, Discussion'),
+    .isIn(['CompanyVisit', 'Hotel', 'Restaurant', 'Leisure', 'Travel', 'Discussion'])
+    .withMessage('Type must be one of: CompanyVisit, Hotel, Restaurant, Leisure, Travel, Discussion'),
   body('title')
     .trim()
     .isLength({ min: 2, max: 255 })
@@ -62,8 +62,8 @@ const createActivityValidation = [
 const updateActivityValidation = [
   body('type')
     .optional()
-    .isIn(['CompanyVisit', 'Hotel', 'Restaurant', 'Travel', 'Discussion'])
-    .withMessage('Type must be one of: CompanyVisit, Hotel, Restaurant, Travel, Discussion'),
+    .isIn(['CompanyVisit', 'Hotel', 'Restaurant', 'Leisure', 'Travel', 'Discussion'])
+    .withMessage('Type must be one of: CompanyVisit, Hotel, Restaurant, Leisure, Travel, Discussion'),
   body('title')
     .optional()
     .trim()
